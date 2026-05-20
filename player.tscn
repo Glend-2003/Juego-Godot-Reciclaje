@@ -1,0 +1,30 @@
+[gd_scene format=3 uid="uid://bplayer00001"]
+
+[ext_resource type="Script" path="res://player.gd" id="1_pscr"]
+[ext_resource type="PackedScene" path="res://Meshy_AI_Red_Shirt_Wolf_of_the_biped_Animation_Confused_Scratch_withSkin.glb" id="2_mesh"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_1"]
+radius = 0.3
+height = 1.8
+
+[sub_resource type="SeparationRayShape3D" id="SeparationRayShape3D_1"]
+length = 0.2
+
+[node name="Player" type="CharacterBody3D"]
+script = ExtResource("1_pscr")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
+shape = SubResource("CapsuleShape3D_1")
+
+[node name="Model" parent="." instance=ExtResource("2_mesh")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
+
+[node name="CamPivot" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 0)
+
+[node name="SpringArm3D" type="SpringArm3D" parent="CamPivot"]
+transform = Transform3D(1, 0, 0, 0, 0.965926, 0.258819, 0, -0.258819, 0.965926, 0, 0, 0)
+spring_length = 4.5
+
+[node name="Camera3D" type="Camera3D" parent="CamPivot/SpringArm3D"]

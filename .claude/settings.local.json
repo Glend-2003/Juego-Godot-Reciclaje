@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git init *)",
+      "Bash(git remote *)",
+      "Bash(git ls-remote *)",
+      "Bash(mkdir -p ~/.ssh)",
+      "Bash(ssh-keyscan -t rsa,ecdsa,ed25519 github.com)",
+      "Read(//c/Users/Usuario/.ssh/**)",
+      "Bash(gh auth *)",
+      "PowerShell(git ls-remote *)",
+      "PowerShell(ssh -T git@github.com 2>&1 | Select-Object -First 3)",
+      "PowerShell(git *)"
+    ]
+  }
+}
