@@ -1,7 +1,7 @@
 [gd_scene format=3 uid="uid://y1cbcfian3kw"]
 
 [ext_resource type="PackedScene" uid="uid://b40xvxis3tbaf" path="res://Angar.glb" id="1_ig7tw"]
-[ext_resource type="PackedScene" path="res://player.tscn" id="2_player"]
+[ext_resource type="PackedScene" uid="uid://bplayer00001" path="res://player.tscn" id="2_player"]
 [ext_resource type="Script" uid="uid://d0upk6xfhm03n" path="res://main.gd" id="3_main"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_1"]

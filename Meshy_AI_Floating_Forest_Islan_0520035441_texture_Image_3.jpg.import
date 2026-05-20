@@ -2,8 +2,8 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://b6s8vlta1xl1q"
-path.s3tc="res://.godot/imported/Meshy_AI_Floating_Forest_Islan_0520031722_texture_Image_3.jpg-49d89f7a9fd1ea987eb1101107815e34.s3tc.ctex"
+uid="uid://c3p3ldmhaa7wd"
+path.s3tc="res://.godot/imported/Meshy_AI_Floating_Forest_Islan_0520035441_texture_Image_3.jpg-b573cc078dc48b5b606e5c419cb77cba.s3tc.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc"],
 "vram_texture": true
@@ -14,8 +14,8 @@ generator_parameters={
 
 [deps]
 
-source_file="res://Meshy_AI_Floating_Forest_Islan_0520031722_texture_Image_3.jpg"
-dest_files=["res://.godot/imported/Meshy_AI_Floating_Forest_Islan_0520031722_texture_Image_3.jpg-49d89f7a9fd1ea987eb1101107815e34.s3tc.ctex"]
+source_file="res://Meshy_AI_Floating_Forest_Islan_0520035441_texture_Image_3.jpg"
+dest_files=["res://.godot/imported/Meshy_AI_Floating_Forest_Islan_0520035441_texture_Image_3.jpg-b573cc078dc48b5b606e5c419cb77cba.s3tc.ctex"]
 
 [params]
 
