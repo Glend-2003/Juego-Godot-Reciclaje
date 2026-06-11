@@ -1,0 +1,46 @@
+[gd_scene format=3 uid="uid://drsu1jlrpveka"]
+
+[ext_resource type="Script" uid="uid://bo3r1m0wq60h" path="res://main_menu.gd" id="1_wked4"]
+[ext_resource type="Texture2D" uid="uid://bgpbja8f4awvw" path="res://background.png" id="1_wut1r"]
+[ext_resource type="Texture2D" uid="uid://ff14t3n8osud" path="res://Play_normal.png" id="2_wc2lj"]
+[ext_resource type="Texture2D" uid="uid://caegtb7t432t6" path="res://Play_pressed.png" id="3_wked4"]
+[ext_resource type="Texture2D" uid="uid://kw07hpxokni1" path="res://Play_hover.png" id="4_c3jr6"]
+[ext_resource type="AudioStream" uid="uid://di71e5bjanyw7" path="res://leberch-cyberpunk-drone-375259.ogg" id="6_c3jr6"]
+
+[node name="Control" type="Control" unique_id=265372585]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_wked4")
+
+[node name="Background" type="TextureRect" parent="." unique_id=927557114]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("1_wut1r")
+expand_mode = 1
+
+[node name="playButton" type="TextureButton" parent="." unique_id=277164680]
+layout_mode = 0
+offset_left = 411.0
+offset_top = 397.0
+offset_right = 723.0
+offset_bottom = 503.0
+texture_normal = ExtResource("2_wc2lj")
+texture_pressed = ExtResource("3_wked4")
+texture_hover = ExtResource("4_c3jr6")
+ignore_texture_size = true
+stretch_mode = 0
+
+[node name="AudioStreamPlayer" type="AudioStreamPlayer" parent="." unique_id=1311841675]
+stream = ExtResource("6_c3jr6")
+volume_db = -10.0
+autoplay = true
+
+[connection signal="pressed" from="playButton" to="." method="_on_play_button_pressed"]

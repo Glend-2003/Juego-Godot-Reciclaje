@@ -17,7 +17,11 @@ const ANIM_SOURCES := {
 	"Run":    "res://Meshy_AI_Red_Shirt_Wolf_of_the_biped_Animation_Running_withSkin.glb",
 	"Pickup": "res://Meshy_AI_Red_Shirt_Wolf_of_the_biped_Animation_Male_Bend_Over_Pick_Up_withSkin.glb",
 	"Shrug":  "res://Meshy_AI_Red_Shirt_Wolf_of_the_biped_Animation_Shrug_withSkin.glb",
+	"Jump":"res://Meshy_AI_Red_Shirt_Wolf_of_the_biped_Animation_Regular_Jump_withSkin.glb",
+	"Jump_Run":"res://Meshy_AI_Red_Shirt_Wolf_of_the_biped_Animation_Jump_Run_withSkin.glb",
 }
+
+var jumping_anim := "Jump"
 
 var _current_anim := ""
 
@@ -108,11 +112,6 @@ func _unhandled_input(event: InputEvent) -> void:
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
 func _physics_process(delta: float) -> void:
-	if not is_on_floor():
-		velocity.y -= 9.8 * delta
-	if Input.is_action_just_pressed("jump") and is_on_floor():
-		velocity.y = JUMP_VELOCITY
-
 	var input_dir := Input.get_vector("move_left", "move_right", "move_back", "move_forward")
 	var running := Input.is_action_pressed("sprint")
 	var speed := RUN_SPEED if running else SPEED
@@ -121,10 +120,23 @@ func _physics_process(delta: float) -> void:
 	var fwd := -basis.z
 	fwd.y = 0.0
 	fwd = fwd.normalized()
+
 	var right := basis.x
 	right.y = 0.0
 	right = right.normalized()
+
 	var dir := (right * input_dir.x + fwd * input_dir.y).normalized()
+
+	if not is_on_floor():
+		velocity.y -= 9.8 * delta
+
+	if Input.is_action_just_pressed("jump") and is_on_floor():
+		if running and dir.length() > 0.0:
+			jumping_anim = "Jump_Run"
+		else:
+			jumping_anim = "Jump"
+
+		velocity.y = JUMP_VELOCITY
 
 	if dir.length() > 0.0:
 		velocity.x = dir.x * speed
@@ -138,7 +150,7 @@ func _physics_process(delta: float) -> void:
 	move_and_slide()
 
 	if not is_on_floor():
-		_play("Idle")
+		_play(jumping_anim)
 	elif dir.length() > 0.0:
 		_play("Run" if running else "Walk")
 	else:

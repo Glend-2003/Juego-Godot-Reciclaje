@@ -10,6 +10,8 @@ const FOREST_Y_OFFSET := -6.5        # afinación manual: positivo = sube las is
 @onready var angar: Node3D = $Angar
 @onready var floor_body: StaticBody3D = $Floor
 @onready var floor_shape: CollisionShape3D = $Floor/CollisionShape3D
+@onready var contador_label: Label = $CanvasLayer/TextureRect/Label
+@onready var timer: Timer = $Timer
 
 func _ready() -> void:
 	await get_tree().process_frame
@@ -169,3 +171,19 @@ func _all_descendants(node: Node) -> Array:
 		out.append(c)
 		out.append_array(_all_descendants(c))
 	return out
+
+
+var tiempo := 180
+
+
+func _on_timer_timeout() -> void:
+	tiempo -= 1
+	
+	var minutos = tiempo / 60
+	var segundos = tiempo % 60
+
+	contador_label.text = "%02d:%02d" % [minutos, segundos]
+
+	if tiempo <= 0:
+		timer.stop()
+		contador_label.text = "00:00"
