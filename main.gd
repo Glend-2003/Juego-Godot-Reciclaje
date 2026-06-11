@@ -7,11 +7,14 @@ const FOREST_RING_DEPTH := 6         # anillos extra de islas por FUERA del hang
 const FOREST_TILE_OVERLAP := 0.92    # <1 = solape leve para evitar huecos
 const FOREST_Y_OFFSET := -6.5        # afinación manual: positivo = sube las islas
 
+const TRASH_RADIO := 24.0            # radio de dispersión de la basura (amplio: hay que caminar)
+
 @onready var angar: Node3D = $Angar
 @onready var floor_body: StaticBody3D = $Floor
 @onready var floor_shape: CollisionShape3D = $Floor/CollisionShape3D
 @onready var contador_label: Label = $CanvasLayer/TextureRect/Label
 @onready var timer: Timer = $Timer
+@onready var trash_spawner: TrashSpawner = $TrashSpawner
 
 func _ready() -> void:
 	await get_tree().process_frame
@@ -27,6 +30,16 @@ func _ready() -> void:
 
 	_spawn_forest(aabb)
 	_spawn_invisible_walls(aabb)
+
+	# Centro del hangar a la altura del piso: punto de referencia para la basura
+	# y los basureros.
+	var centro := Vector3(
+		aabb.position.x + aabb.size.x * 0.5,
+		FLOOR_TOP_Y,
+		aabb.position.z + aabb.size.z * 0.5
+	)
+	# Genera la basura aleatoria alrededor del centro (no desaparece sola).
+	trash_spawner.generar(centro, TRASH_RADIO, FLOOR_TOP_Y)
 
 func _spawn_invisible_walls(angar_aabb: AABB) -> void:
 	# Paredes invisibles en el perímetro del hangar para que el jugador no

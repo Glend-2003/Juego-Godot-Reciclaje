@@ -10,7 +10,9 @@
       "Bash(gh auth *)",
       "PowerShell(git ls-remote *)",
       "PowerShell(ssh -T git@github.com 2>&1 | Select-Object -First 3)",
-      "PowerShell(git *)"
+      "PowerShell(git *)",
+      "Bash(rm -f \"basurero.gd\" \"basurero.gd.uid\" \"basurero.tscn\")",
+      "Bash(ls basurero*)"
     ]
   }
 }

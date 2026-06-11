@@ -5,6 +5,7 @@
 [ext_resource type="Script" uid="uid://d0upk6xfhm03n" path="res://main.gd" id="3_main"]
 [ext_resource type="Texture2D" uid="uid://b2l0w5slq1hqp" path="res://cronometro_back.png" id="4_1bvp3"]
 [ext_resource type="Texture2D" uid="uid://dunkjw52amf41" path="res://puntaje_back.png" id="5_lquwl"]
+[ext_resource type="Script" path="res://trash_spawner.gd" id="6_spawn"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_1"]
 
@@ -78,6 +79,9 @@ offset_bottom = 118.0
 theme_override_font_sizes/font_size = 23
 text = "0"
 horizontal_alignment = 1
+
+[node name="TrashSpawner" type="Node3D" parent="." unique_id=1492883001]
+script = ExtResource("6_spawn")
 
 [node name="Timer" type="Timer" parent="." unique_id=11103428]
 autostart = true

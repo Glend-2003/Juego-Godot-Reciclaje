@@ -24,6 +24,9 @@ const ANIM_SOURCES := {
 var jumping_anim := "Jump"
 
 var _current_anim := ""
+# Mientras _anim_lock > 0 se mantiene una animación de acción (p. ej. agarrar)
+# sin que la locomoción la pise.
+var _anim_lock := 0.0
 
 func _ready() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
@@ -103,6 +106,15 @@ func _play(name: String) -> void:
 	_current_anim = name
 	anim.play(name, 0.15)
 
+# Reproduce la animación de agarrar ("Pickup") una sola vez. La llama el
+# PickupSystem cuando el jugador recoge una basura.
+func reproducir_pickup() -> void:
+	if anim == null or not anim.has_animation("Pickup"):
+		return
+	_current_anim = ""          # forzar el cambio aunque ya estuviera sonando
+	_play("Pickup")
+	_anim_lock = anim.get_animation("Pickup").length
+
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		cam_pivot.rotate_y(-event.relative.x * MOUSE_SENS)
@@ -148,6 +160,12 @@ func _physics_process(delta: float) -> void:
 		velocity.z = move_toward(velocity.z, 0.0, speed)
 
 	move_and_slide()
+
+	# Mientras dura una animación de acción (agarrar), no la pisamos con la
+	# locomoción.
+	if _anim_lock > 0.0:
+		_anim_lock -= delta
+		return
 
 	if not is_on_floor():
 		_play(jumping_anim)
