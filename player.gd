@@ -115,12 +115,14 @@ func get_pickup_system() -> PickupSystem:
 			return c
 	return null
 
+const PICKUP_SPEED := 3.0     # multiplicador de velocidad de la animación de agarrar
+
 func reproducir_pickup() -> void:
 	if anim == null or not anim.has_animation("Pickup"):
 		return
-	_current_anim = ""          # forzar el cambio aunque ya estuviera sonando
-	_play("Pickup")
-	_anim_lock = anim.get_animation("Pickup").length
+	_current_anim = "Pickup"    # marcar para que _process no la pise
+	anim.play("Pickup", 0.1, PICKUP_SPEED)
+	_anim_lock = anim.get_animation("Pickup").length / PICKUP_SPEED
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
