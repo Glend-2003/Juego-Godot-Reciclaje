@@ -24,6 +24,7 @@ var _indicador_base_y: float = 0.0
 var _t: float = 0.0
 
 # HUD
+var _hud_tarjeta: PanelContainer
 var _hud_contenedor: SubViewportContainer
 var _hud_viewport: SubViewport
 var _hud_soporte: Node3D
@@ -110,24 +111,46 @@ func _construir_hud() -> void:
 	var capa := CanvasLayer.new()
 	add_child(capa)
 
+	# Tarjeta "Llevas:" anclada en la esquina inferior izquierda. Agrupa la
+	# etiqueta y el visor 3D en un VBox para que queden alineados y centrados.
+	_hud_tarjeta = PanelContainer.new()
+	_hud_tarjeta.anchor_left = 0.0
+	_hud_tarjeta.anchor_top = 1.0
+	_hud_tarjeta.anchor_bottom = 1.0
+	_hud_tarjeta.offset_left = 28
+	_hud_tarjeta.offset_top = -212
+	_hud_tarjeta.offset_bottom = -20
+	_hud_tarjeta.visible = false
+	var estilo := StyleBoxFlat.new()
+	estilo.bg_color = Color(0, 0, 0, 0.45)
+	estilo.set_corner_radius_all(12)
+	estilo.set_content_margin_all(10)
+	_hud_tarjeta.add_theme_stylebox_override("panel", estilo)
+	capa.add_child(_hud_tarjeta)
+
+	var caja := VBoxContainer.new()
+	caja.add_theme_constant_override("separation", 4)
+	caja.alignment = BoxContainer.ALIGNMENT_CENTER
+	_hud_tarjeta.add_child(caja)
+
 	_hud_etiqueta = Label.new()
 	_hud_etiqueta.text = "Llevas:"
-	_hud_etiqueta.position = Vector2(28, 392)
-	_hud_etiqueta.visible = false
-	capa.add_child(_hud_etiqueta)
+	_hud_etiqueta.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_hud_etiqueta.add_theme_color_override("font_color", Color(1, 1, 1))
+	_hud_etiqueta.add_theme_color_override("font_outline_color", Color(0, 0, 0))
+	_hud_etiqueta.add_theme_constant_override("outline_size", 4)
+	caja.add_child(_hud_etiqueta)
 
 	_hud_contenedor = SubViewportContainer.new()
 	_hud_contenedor.stretch = true
-	_hud_contenedor.position = Vector2(28, 420)
-	_hud_contenedor.custom_minimum_size = Vector2(180, 180)
-	_hud_contenedor.size = Vector2(180, 180)
-	_hud_contenedor.visible = false
-	capa.add_child(_hud_contenedor)
+	_hud_contenedor.custom_minimum_size = Vector2(150, 150)
+	_hud_contenedor.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	caja.add_child(_hud_contenedor)
 
 	_hud_viewport = SubViewport.new()
 	_hud_viewport.transparent_bg = true
 	_hud_viewport.own_world_3d = true
-	_hud_viewport.size = Vector2i(180, 180)
+	_hud_viewport.size = Vector2i(150, 150)
 	_hud_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	_hud_contenedor.add_child(_hud_viewport)
 
@@ -329,7 +352,6 @@ func _recoger(item: TrashItem) -> void:
 	var jugador := get_parent()
 	if jugador.has_method("reproducir_pickup"):
 		jugador.reproducir_pickup()
-	_crear_indicador(item.modelo_path)
 	_crear_preview_hud(item.modelo_path)
 	# Sacar de la lista y eliminar del mundo
 	_cercanos.erase(item)
@@ -435,8 +457,8 @@ func _crear_preview_hud(ruta: String) -> void:
 	var centro := aabb.position + aabb.size * 0.5
 	m.scale = Vector3(f, f, f)
 	m.position = -centro * f
-	_hud_contenedor.visible = true
-	_hud_etiqueta.visible = true
+	if _hud_tarjeta:
+		_hud_tarjeta.visible = true
 
 func _limpiar_indicador() -> void:
 	if _indicador:
@@ -447,7 +469,5 @@ func _limpiar_preview_hud() -> void:
 	if _hud_soporte:
 		for c in _hud_soporte.get_children():
 			c.queue_free()
-	if _hud_contenedor:
-		_hud_contenedor.visible = false
-	if _hud_etiqueta:
-		_hud_etiqueta.visible = false
+	if _hud_tarjeta:
+		_hud_tarjeta.visible = false
