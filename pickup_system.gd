@@ -258,7 +258,7 @@ func _actualizar_hint() -> void:
 		if not _bins_cercanos.is_empty():
 			_hud_hint.text = "G: Depositar en " + _nombre_categoria(_bin_mas_cercano().get("categoria"))
 		else:
-			_hud_hint.text = "Llevá la basura al basurero correcto"
+			_hud_hint.text = ""
 	elif _cercanos.size() > 1:
 		_hud_hint.text = "F: Recoger     G: Cambiar (%d)" % _cercanos.size()
 	elif _cercanos.size() == 1:

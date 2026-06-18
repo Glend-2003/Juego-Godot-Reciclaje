@@ -4,7 +4,7 @@ class_name TrashSpawner
 # Las basuras generadas NO desaparecen solas: quedan en la escena hasta que el
 # jugador las recoja.
 
-@export var cantidad: int = 16          # cuántas basuras generar
+@export var cantidad: int = 20          # cuántas basuras generar
 @export var radio: float = 24.0         # radio máximo de dispersión
 @export var radio_minimo: float = 6.0   # zona despejada en el centro (hay que caminar para llegar)
 @export var altura_piso: float = 1.75   # Y del piso donde se apoyan las basuras

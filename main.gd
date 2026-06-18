@@ -17,6 +17,10 @@ const TRASH_RADIO := 24.0            # radio de dispersión de la basura (amplio
 @onready var timer: Timer = $Timer
 @onready var trash_spawner: TrashSpawner = $TrashSpawner
 
+# Contador de basura restante (panelito en la parte inferior-central).
+var _label_basura: Label
+var _basura_restante: int = -1
+
 func _ready() -> void:
 	await get_tree().process_frame
 	var aabb := _world_aabb(angar)
@@ -34,9 +38,61 @@ func _ready() -> void:
 	_spawn_invisible_walls(aabb)
 	_spawn_bins_and_caps(aabb)
 	_conectar_contador_monedas()
+	_crear_contador_basura()
 
 	# Diálogo de bienvenida (frase aleatoria de la categoría "inicio").
 	DialogueManager.show_dialogue("inicio", "neutral")
+
+func _process(_delta: float) -> void:
+	_actualizar_contador_basura()
+
+# Panelito tipo letrero de madera (en armonía con los toasts y los banners) que
+# muestra cuánta basura queda en el piso. Anclado abajo-centro.
+func _crear_contador_basura() -> void:
+	var capa: CanvasLayer = $CanvasLayer
+	var tarjeta := PanelContainer.new()
+	tarjeta.name = "ContadorBasura"
+	tarjeta.anchor_left = 0.5
+	tarjeta.anchor_right = 0.5
+	tarjeta.anchor_top = 1.0
+	tarjeta.anchor_bottom = 1.0
+	tarjeta.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	tarjeta.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	tarjeta.offset_bottom = -18
+	tarjeta.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	var estilo := StyleBoxFlat.new()
+	estilo.bg_color = Color(0.16, 0.11, 0.07, 0.88)   # café oscuro semitransparente
+	estilo.set_corner_radius_all(12)
+	estilo.set_content_margin_all(8)
+	estilo.content_margin_left = 16
+	estilo.content_margin_right = 16
+	estilo.set_border_width_all(2)
+	estilo.border_color = Color("7CB342")             # verde GreenUNA
+	estilo.shadow_color = Color(0, 0, 0, 0.4)
+	estilo.shadow_size = 4
+	estilo.shadow_offset = Vector2(0, 3)
+	tarjeta.add_theme_stylebox_override("panel", estilo)
+	capa.add_child(tarjeta)
+
+	_label_basura = Label.new()
+	_label_basura.add_theme_color_override("font_color", Color(1, 1, 1))
+	_label_basura.add_theme_color_override("font_outline_color", Color(0, 0, 0))
+	_label_basura.add_theme_constant_override("outline_size", 5)
+	_label_basura.add_theme_font_size_override("font_size", 18)
+	_label_basura.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tarjeta.add_child(_label_basura)
+	_actualizar_contador_basura()
+
+# Refresca el texto solo cuando cambia el número (evita reescribir cada frame).
+func _actualizar_contador_basura() -> void:
+	if _label_basura == null:
+		return
+	var n := get_tree().get_nodes_in_group("basura").size()
+	if n == _basura_restante:
+		return
+	_basura_restante = n
+	_label_basura.text = "Basura restante: %d" % n
 
 func _conectar_contador_monedas() -> void:
 	# Conecta la señal del PickupSystem del jugador al label de puntos del banner.
@@ -95,6 +151,12 @@ const BIN_VERDE := preload("res://basurero verde.glb")
 const BIN_NEGRO := preload("res://basurero-negro.glb")
 const CAP_COLLECTION := preload("res://Meshy_AI_Bottle_Cap_Collection_0618014945_texture.glb")
 
+# Desplazamiento de TODA la fila de basureros respecto al centro del hangar.
+# Negativo en X = hacia la izquierda del jugador (que entra mirando hacia -Z).
+# Ajustá estos dos valores si querés afinar la posición.
+const BINS_OFFSET_X := -6.0
+const BINS_OFFSET_Z := 0.0
+
 func _spawn_bins_and_caps(angar_aabb: AABB) -> void:
 	# Coloca los 3 basureros + la colección de tapas en una línea centrada
 	# dentro del hangar para que el jugador los vea al entrar.
@@ -106,12 +168,14 @@ func _spawn_bins_and_caps(angar_aabb: AABB) -> void:
 	# Orden y categorías según las reglas de reciclaje del juego:
 	#   Azul = Plásticos, Gris = Papel y Cartón, Verde = Orgánicos,
 	#   Negro = No valorizables, CapCollection = Tapas plásticas exclusivas.
+	# Tapas va junto al azul (índice 1) para que quede en la fila visible y a la
+	# misma distancia que el resto.
 	var items := [
 		{"scene": BIN_AZUL,       "scale": 1.5, "name": "BasureroAzul",   "cat": Categorias.Tipo.AZUL,  "any": false},
+		{"scene": CAP_COLLECTION, "scale": 1.0, "name": "CapCollection",  "cat": Categorias.Tipo.TAPAS, "any": false},
 		{"scene": BIN_GRIS,       "scale": 1.5, "name": "BasureroGris",   "cat": Categorias.Tipo.GRIS,  "any": false},
 		{"scene": BIN_VERDE,      "scale": 1.5, "name": "BasureroVerde",  "cat": Categorias.Tipo.VERDE, "any": false},
 		{"scene": BIN_NEGRO,      "scale": 1.5, "name": "BasureroNegro",  "cat": Categorias.Tipo.NEGRO, "any": false},
-		{"scene": CAP_COLLECTION, "scale": 1.0, "name": "CapCollection",  "cat": Categorias.Tipo.TAPAS, "any": false},
 	]
 	var total: float = float(items.size() - 1) * spacing
 	var start_x: float = center_x - total * 0.5
@@ -126,7 +190,7 @@ func _spawn_bins_and_caps(angar_aabb: AABB) -> void:
 		inst.name = it["name"]
 		root.add_child(inst)
 		inst.scale = Vector3(it["scale"], it["scale"], it["scale"])
-		inst.position = Vector3(start_x + float(i) * spacing, y, center_z)
+		inst.position = Vector3(start_x + float(i) * spacing + BINS_OFFSET_X, y, center_z + BINS_OFFSET_Z)
 		# Área de depósito (Basurero) que detecta al jugador.
 		var bin: Area3D = BasureroScript.new()
 		bin.set("categoria", it["cat"])

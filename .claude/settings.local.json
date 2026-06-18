@@ -15,7 +15,9 @@
       "Bash(ls basurero*)",
       "PowerShell($godot = \"C:\\\\Users\\\\Jamel Sandí\\\\Desktop\\\\Godot_v4.6.2-stable_win64.exe\"; $proj = \"D:\\\\Ing\\\\I Ciclo 26\\\\Game UNA\\\\Juego-Godot-Reciclaje\"; & $godot --headless --path $proj --import 2>&1 | Select-String -Pattern \"ERROR|SCRIPT ERROR|Parse Error|DialoguePopup|DialogueManager|Failed|error\" -Context 0,1)",
       "PowerShell($godot = \"C:\\\\Users\\\\Jamel Sandí\\\\Desktop\\\\Godot_v4.6.2-stable_win64.exe\"; $proj = \"D:\\\\Ing\\\\I Ciclo 26\\\\Game UNA\\\\Juego-Godot-Reciclaje\"; & $godot --headless --path $proj \"res://main.tscn\" --quit-after 120 2>&1 | Select-String -Pattern \"ERROR|SCRIPT ERROR|Parse Error|nil|Invalid|Cannot|null instance\" -Context 1,1)",
-      "PowerShell($godot = \"C:\\\\Users\\\\Jamel Sandí\\\\Desktop\\\\Godot_v4.6.2-stable_win64.exe\"; $proj = \"D:\\\\Ing\\\\I Ciclo 26\\\\Game UNA\\\\Juego-Godot-Reciclaje\"; & $godot --headless --path $proj \"res://main.tscn\" --quit-after 60 2>&1 | Select-String -Pattern \"DialogueManager|Parse Error|Unrecognized UID|SCRIPT ERROR|not declared\")"
+      "PowerShell($godot = \"C:\\\\Users\\\\Jamel Sandí\\\\Desktop\\\\Godot_v4.6.2-stable_win64.exe\"; $proj = \"D:\\\\Ing\\\\I Ciclo 26\\\\Game UNA\\\\Juego-Godot-Reciclaje\"; & $godot --headless --path $proj \"res://main.tscn\" --quit-after 60 2>&1 | Select-String -Pattern \"DialogueManager|Parse Error|Unrecognized UID|SCRIPT ERROR|not declared\")",
+      "PowerShell($godot = \"C:\\\\Users\\\\Jamel Sandí\\\\Desktop\\\\Godot_v4.6.2-stable_win64.exe\"; $proj = \"D:\\\\Ing\\\\I Ciclo 26\\\\Game UNA\\\\Juego-Godot-Reciclaje\"; & $godot --headless --path $proj \"res://main.tscn\" --quit-after 150 2>&1 | Select-String -Pattern \"Parse Error|SCRIPT ERROR|not declared|Basuras generadas|Bins\\\\]|Invalid|nil\")",
+      "PowerShell($godot = \"C:\\\\Users\\\\Jamel Sandí\\\\Desktop\\\\Godot_v4.6.2-stable_win64.exe\"; $proj = \"D:\\\\Ing\\\\I Ciclo 26\\\\Game UNA\\\\Juego-Godot-Reciclaje\"; & $godot --headless --path $proj \"res://main.tscn\" --quit-after 150 2>&1 | Select-String -Pattern \"Parse Error|SCRIPT ERROR|not declared|Basuras generadas|Bins\\\\]|Invalid\")"
     ]
   }
 }
