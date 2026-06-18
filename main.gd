@@ -29,8 +29,31 @@ func _ready() -> void:
 	print("Floor (manual) global Y = ", floor_body.global_position.y)
 
 	_spawn_forest(aabb)
+	_generate_hangar_collisions()
 	_spawn_invisible_walls(aabb)
 	_spawn_bins_and_caps(aabb)
+
+# Genera colisiones REALES del hangar siguiendo la geometría del mesh.
+# Esto crea un StaticBody3D + ConcavePolygonShape3D por cada MeshInstance3D
+# dentro del Angar (paredes, columnas, marcos, etc.), de modo que el jugador
+# choca exactamente con lo que ve. Es lo más cercano a un "level art = level
+# collision" y elimina la necesidad de paredes invisibles aproximadas.
+func _generate_hangar_collisions() -> void:
+	var count: int = 0
+	for n in _all_descendants(angar):
+		if n is MeshInstance3D:
+			var mi := n as MeshInstance3D
+			# Evitar duplicar colisión si ya se generó (re-ejecuciones, hot reload).
+			var already_has: bool = false
+			for c in mi.get_children():
+				if c is StaticBody3D:
+					already_has = true
+					break
+			if already_has:
+				continue
+			mi.create_trimesh_collision()
+			count += 1
+	print("[Hangar] Colisiones trimesh generadas para ", count, " meshes del Angar")
 
 const BIN_AZUL := preload("res://basurero-azul.glb")
 const BIN_GRIS := preload("res://basurero-gris.glb")
@@ -78,9 +101,10 @@ func _spawn_bins_and_caps(angar_aabb: AABB) -> void:
 	# Genera la basura aleatoria alrededor del centro (no desaparece sola).
 	trash_spawner.generar(centro, TRASH_RADIO, FLOOR_TOP_Y)
 
+# Paredes invisibles en el perímetro del hangar como red de seguridad: aunque las
+# colisiones reales del Angar bloquean las paredes visibles, este muro extra
+# garantiza que el jugador no escape al bosque por puertas/aberturas del modelo.
 func _spawn_invisible_walls(angar_aabb: AABB) -> void:
-	# Paredes invisibles en el perímetro del hangar para que el jugador no
-	# pueda salir hacia el bosque.
 	var walls_root := StaticBody3D.new()
 	walls_root.name = "InvisibleWalls"
 	add_child(walls_root)
@@ -93,24 +117,20 @@ func _spawn_invisible_walls(angar_aabb: AABB) -> void:
 	var half_x: float = angar_aabb.size.x * 0.5
 	var half_z: float = angar_aabb.size.z * 0.5
 	var wall_thickness: float = 0.5
-	var wall_height: float = 8.0    # alto suficiente para bloquear saltos
-	var inset: float = 15.0         # cuánto hacia adentro del hangar están las paredes (subí para acortar zona caminable)
-
+	var wall_height: float = 8.0
+	var inset: float = 15.0
 	var len_x: float = angar_aabb.size.x - inset * 2.0
 	var len_z: float = angar_aabb.size.z - inset * 2.0
-	# Pared norte (+Z)
+
 	_add_wall(walls_root,
 		Vector3(center.x, center.y + wall_height * 0.5, center.z + half_z - inset),
 		Vector3(len_x, wall_height, wall_thickness))
-	# Pared sur (-Z)
 	_add_wall(walls_root,
 		Vector3(center.x, center.y + wall_height * 0.5, center.z - half_z + inset),
 		Vector3(len_x, wall_height, wall_thickness))
-	# Pared este (+X)
 	_add_wall(walls_root,
 		Vector3(center.x + half_x - inset, center.y + wall_height * 0.5, center.z),
 		Vector3(wall_thickness, wall_height, len_z))
-	# Pared oeste (-X)
 	_add_wall(walls_root,
 		Vector3(center.x - half_x + inset, center.y + wall_height * 0.5, center.z),
 		Vector3(wall_thickness, wall_height, len_z))
