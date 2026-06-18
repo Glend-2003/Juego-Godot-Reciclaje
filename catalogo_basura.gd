@@ -1,8 +1,12 @@
 extends RefCounted
 class_name CatalogoBasura
 # Catálogo de modelos .glb de basura agrupados por categoría/basurero.
-# Se usan las versiones "New" de cada modelo (las más recientes).
-# Las rutas apuntan a las carpetas dentro de "Game 3D/Game 3D/...".
+# Asignaciones según las reglas oficiales del juego (ver Categorias):
+#   AZUL  = Plásticos limpios y latas (envases reciclables)
+#   GRIS  = Papel y cartón secos (cajas, periódicos, tubos, tetrabrik)
+#   VERDE = Orgánicos compostables (restos de frutas, verduras, cáscaras)
+#   NEGRO = No valorizables (bolsas plásticas usadas, envases sucios)
+#   TAPAS = Tapas plásticas exclusivas (campañas de reciclaje específicas)
 #
 # IMPORTANTE: estos .glb deben estar importados por Godot (basta con abrir el
 # proyecto en el editor una vez) para que load() los pueda cargar en runtime.
@@ -11,10 +15,13 @@ const MODELOS := {
 	Categorias.Tipo.AZUL: [
 		"res://Game 3D/Game 3D/Basurero Azul/Clean_Bottle_New.glb",
 		"res://Game 3D/Game 3D/Basurero Azul/Glass_Bottle_New.glb",
-		"res://Game 3D/Game 3D/Basurero Azul/News_Paper_New.glb",
 		"res://Game 3D/Game 3D/Basurero Azul/Opened_Can_New.glb",
+	],
+	Categorias.Tipo.GRIS: [
+		"res://Game 3D/Game 3D/Basurero Azul/News_Paper_New.glb",
 		"res://Game 3D/Game 3D/Basurero Azul/Pizza_Box_New.glb",
 		"res://Game 3D/Game 3D/Basurero Azul/Tetra_Milk_New.glb",
+		"res://Game 3D/Game 3D/Basurero Negro/Used_Paper_Roll_New.glb",
 	],
 	Categorias.Tipo.VERDE: [
 		"res://Game 3D/Game 3D/Basurero Verde/Bitten_Apple_New.glb",
@@ -26,8 +33,8 @@ const MODELOS := {
 	Categorias.Tipo.NEGRO: [
 		"res://Game 3D/Game 3D/Basurero Negro/Bag_New.glb",
 		"res://Game 3D/Game 3D/Basurero Negro/Dirt_Bottle_New.glb",
-		"res://Game 3D/Game 3D/Basurero Negro/Used_Paper_Roll_New.glb",
 	],
+	Categorias.Tipo.TAPAS: [],
 }
 
 # Devuelve la ruta de un modelo aleatorio de la categoría dada ("" si no hay).
@@ -37,6 +44,10 @@ static func modelo_aleatorio(t: int) -> String:
 		return ""
 	return lista[randi() % lista.size()]
 
-# Lista de categorías disponibles en el catálogo.
+# Lista de categorías disponibles en el catálogo (excluye las vacías).
 static func categorias() -> Array:
-	return MODELOS.keys()
+	var out: Array = []
+	for k in MODELOS.keys():
+		if not (MODELOS[k] as Array).is_empty():
+			out.append(k)
+	return out

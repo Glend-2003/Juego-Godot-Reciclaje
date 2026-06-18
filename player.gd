@@ -108,6 +108,13 @@ func _play(name: String) -> void:
 
 # Reproduce la animación de agarrar ("Pickup") una sola vez. La llama el
 # PickupSystem cuando el jugador recoge una basura.
+# Devuelve el PickupSystem hijo (lo usa Basurero para depositar).
+func get_pickup_system() -> PickupSystem:
+	for c in get_children():
+		if c is PickupSystem:
+			return c
+	return null
+
 func reproducir_pickup() -> void:
 	if anim == null or not anim.has_animation("Pickup"):
 		return

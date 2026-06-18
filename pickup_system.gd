@@ -1,37 +1,50 @@
 extends Node3D
 class_name PickupSystem
-# Sistema de recogida de basura. Vive como hijo del Player.
+# Sistema de recogida MANUAL de basura. Vive como hijo del Player.
 #
 # Reglas:
 #   - El jugador puede cargar UNA sola basura a la vez.
-#   - La recogida es AUTOMÁTICA al tocar la basura: esa basura desaparece del
-#     mundo y pasa a manos del jugador. Las demás quedan intactas.
-#   - Al recoger se reproduce la animación "Pickup" del personaje.
-#   - La basura cargada se muestra de dos formas:
-#       a) flotando sobre el personaje (sigue su orientación, con giro y rebote).
-#       b) como un preview pequeño en una sección de la pantalla (HUD).
-#   - Con la tecla "interact" (E) el jugador suelta la basura cargada.
-#     TODO: cuando vuelvan los basureros, aquí va el depósito + el puntaje.
-#
-# Construye en código su Area3D de detección, el punto de sujeción y el HUD,
-# así el player.tscn solo necesita este nodo.
+#   - La recogida NO es automática: el jugador debe estar cerca y pulsar
+#     "pickup" (F en PC, botón en móvil) para levantar la basura seleccionada.
+#   - Con "switch_trash" (G en PC, botón en móvil) cicla entre las basuras
+#     cercanas para elegir cuál levantar.
+#   - La basura seleccionada muestra un indicador flotante amarillo encima.
+#   - Al entrar al área de un Basurero llevando basura, ésta se deposita
+#     automáticamente: desaparece y el jugador queda libre.
 
-@export var radio_interaccion: float = 1.6   # alcance para recoger (tocar)
+@export var radio_interaccion: float = 1.2   # alcance para detectar basura y basureros
 @export var altura_indicador: float = 2.2    # altura del indicador sobre los pies
 @export var escala_indicador: float = 0.5    # dimensión mayor del indicador (m)
-@export var vel_rotacion: float = 1.5        # giro del indicador (rad/s)
+@export var vel_rotacion: float = 1.5
 
-var _area: Area3D              # detecta basura cercana
-var _punto_sujecion: Node3D    # sobre la cabeza (sigue al modelo del personaje)
-var _indicador: Node3D         # copia 3D de lo que carga
+var _area: Area3D
+var _punto_sujecion: Node3D
+var _indicador: Node3D
 var _indicador_base_y: float = 0.0
-var _t: float = 0.0            # acumulador de tiempo para el rebote
+var _t: float = 0.0
 
-# HUD (preview en pantalla)
+# HUD
 var _hud_contenedor: SubViewportContainer
 var _hud_viewport: SubViewport
 var _hud_soporte: Node3D
 var _hud_etiqueta: Label
+var _hud_hint: Label
+var _hud_mensaje: Label                  # mensajes de éxito/error de depósito
+var _hud_mensaje_t: float = 0.0
+var _monedas: int = 0
+
+signal monedas_cambiaron(total: int, delta: int)
+var _btn_pickup: Button
+var _btn_switch: Button
+var _btn_deposit: Button
+
+# Basuras cercanas y selección actual
+var _cercanos: Array[TrashItem] = []
+var _seleccion: int = 0
+var _marcador_seleccion: MeshInstance3D
+
+# Basureros cercanos (Area3D con script Basurero)
+var _bins_cercanos: Array[Area3D] = []
 
 # Estado de lo que carga el jugador (-1 = nada).
 var _cat_cargada: int = -1
@@ -40,13 +53,13 @@ var _ruta_cargada: String = ""
 func _ready() -> void:
 	_crear_punto_sujecion()
 	_crear_area_interaccion()
+	_crear_marcador_seleccion()
 	_construir_hud()
 
 func _crear_punto_sujecion() -> void:
 	_punto_sujecion = Node3D.new()
 	_punto_sujecion.name = "PuntoSujecion"
 	_punto_sujecion.position = Vector3(0, altura_indicador, 0)
-	# Se cuelga del modelo del personaje para que la basura acompañe su giro.
 	var modelo: Node3D = get_parent().get_node_or_null("Model")
 	if modelo:
 		modelo.add_child(_punto_sujecion)
@@ -57,19 +70,41 @@ func _crear_area_interaccion() -> void:
 	_area = Area3D.new()
 	_area.name = "AreaInteraccion"
 	_area.collision_layer = 0
-	_area.collision_mask = 2     # detecta basura (capa 2)
+	# 2 = capa de basura, 4 = capa de basureros.
+	_area.collision_mask = 2 | 4
 	_area.monitoring = true
 	_area.monitorable = false
 	var col := CollisionShape3D.new()
 	var forma := SphereShape3D.new()
 	forma.radius = radio_interaccion
 	col.shape = forma
-	col.position = Vector3(0, 1.0, 0)  # centrado a la altura del torso
+	col.position = Vector3(0, 1.0, 0)
 	_area.add_child(col)
 	add_child(_area)
 	_area.area_entered.connect(_on_area_entered)
+	_area.area_exited.connect(_on_area_exited)
 
-# --- HUD: preview 3D pequeño en una esquina de la pantalla ------------------
+func _crear_marcador_seleccion() -> void:
+	# Flecha invertida amarilla que se posa sobre la basura seleccionada.
+	_marcador_seleccion = MeshInstance3D.new()
+	_marcador_seleccion.name = "MarcadorSeleccion"
+	var cono := CylinderMesh.new()
+	cono.top_radius = 0.0
+	cono.bottom_radius = 0.18
+	cono.height = 0.35
+	_marcador_seleccion.mesh = cono
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(1.0, 0.9, 0.1)
+	mat.emission_enabled = true
+	mat.emission = Color(1.0, 0.85, 0.0)
+	mat.emission_energy_multiplier = 1.4
+	_marcador_seleccion.material_override = mat
+	_marcador_seleccion.rotation.x = PI  # punta hacia abajo
+	_marcador_seleccion.visible = false
+	# Lo colgamos directamente de la escena raíz para que no rote con el jugador.
+	get_tree().root.add_child.call_deferred(_marcador_seleccion)
+
+# --- HUD --------------------------------------------------------------------
 
 func _construir_hud() -> void:
 	var capa := CanvasLayer.new()
@@ -91,7 +126,7 @@ func _construir_hud() -> void:
 
 	_hud_viewport = SubViewport.new()
 	_hud_viewport.transparent_bg = true
-	_hud_viewport.own_world_3d = true            # mundo aislado para el preview
+	_hud_viewport.own_world_3d = true
 	_hud_viewport.size = Vector2i(180, 180)
 	_hud_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	_hud_contenedor.add_child(_hud_viewport)
@@ -108,44 +143,260 @@ func _construir_hud() -> void:
 	_hud_soporte = Node3D.new()
 	_hud_viewport.add_child(_hud_soporte)
 
-# --- Bucle -----------------------------------------------------------------
+	# Hint contextual: dice "F: Recoger | G: Cambiar/Depositar".
+	_hud_hint = Label.new()
+	_hud_hint.text = ""
+	_hud_hint.position = Vector2(28, 28)
+	_hud_hint.add_theme_color_override("font_color", Color(1, 1, 1))
+	_hud_hint.add_theme_color_override("font_outline_color", Color(0, 0, 0))
+	_hud_hint.add_theme_constant_override("outline_size", 6)
+	capa.add_child(_hud_hint)
+
+	# Mensaje grande centrado para éxito/error al depositar.
+	_hud_mensaje = Label.new()
+	_hud_mensaje.text = ""
+	_hud_mensaje.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_hud_mensaje.add_theme_font_size_override("font_size", 42)
+	_hud_mensaje.add_theme_color_override("font_outline_color", Color(0, 0, 0))
+	_hud_mensaje.add_theme_constant_override("outline_size", 8)
+	_hud_mensaje.anchor_left = 0.0
+	_hud_mensaje.anchor_right = 1.0
+	_hud_mensaje.anchor_top = 0.15
+	_hud_mensaje.anchor_bottom = 0.15
+	_hud_mensaje.modulate.a = 0.0
+	capa.add_child(_hud_mensaje)
+
+	# Botones táctiles SOLO en móvil.
+	if OS.has_feature("mobile") or DisplayServer.is_touchscreen_available():
+		_btn_pickup = _crear_boton_movil("Recoger", Vector2(0, -220))
+		_btn_pickup.pressed.connect(_intentar_recoger)
+		capa.add_child(_btn_pickup)
+
+		_btn_switch = _crear_boton_movil("Cambiar", Vector2(0, -110))
+		_btn_switch.pressed.connect(_ciclar_seleccion)
+		capa.add_child(_btn_switch)
+
+		_btn_deposit = _crear_boton_movil("Depositar", Vector2(0, -110))
+		_btn_deposit.pressed.connect(_intentar_depositar)
+		capa.add_child(_btn_deposit)
+
+		for b in [_btn_pickup, _btn_switch, _btn_deposit]:
+			b.anchor_left = 1.0
+			b.anchor_right = 1.0
+			b.anchor_top = 1.0
+			b.anchor_bottom = 1.0
+			b.offset_left = -200
+			b.offset_top = b.position.y - 100
+			b.offset_right = -40
+			b.offset_bottom = b.position.y
+
+func _crear_boton_movil(texto: String, pos: Vector2) -> Button:
+	var b := Button.new()
+	b.text = texto
+	b.position = pos
+	b.custom_minimum_size = Vector2(160, 90)
+	b.add_theme_font_size_override("font_size", 28)
+	b.visible = false
+	return b
+
+# --- Bucle ------------------------------------------------------------------
 
 func _process(delta: float) -> void:
 	_t += delta
+
+	# Limpiar referencias muertas (por si una basura fue queue_free externamente)
+	for i in range(_cercanos.size() - 1, -1, -1):
+		if not is_instance_valid(_cercanos[i]):
+			_cercanos.remove_at(i)
+	if _seleccion >= _cercanos.size():
+		_seleccion = 0
+
+	# Mover el marcador sobre la basura seleccionada
+	_actualizar_marcador()
+
+	# Indicador flotante sobre el jugador
 	if _indicador:
 		_indicador.rotate_y(vel_rotacion * delta)
-		# rebote vertical suave
 		_indicador.position.y = _indicador_base_y + sin(_t * 2.0) * 0.07
 	if _hud_soporte and _cargando():
 		_hud_soporte.rotate_y(delta * 1.0)
 
+	# Texto contextual
+	_actualizar_hint()
+
+	# Fade del mensaje de feedback
+	if _hud_mensaje and _hud_mensaje.modulate.a > 0.0:
+		_hud_mensaje_t -= delta
+		if _hud_mensaje_t <= 0.0:
+			_hud_mensaje.modulate.a = max(0.0, _hud_mensaje.modulate.a - delta * 1.5)
+
+
+func _actualizar_marcador() -> void:
+	if _marcador_seleccion == null or not is_instance_valid(_marcador_seleccion):
+		return
+	if _cargando() or _cercanos.is_empty():
+		_marcador_seleccion.visible = false
+		return
+	var item: TrashItem = _cercanos[_seleccion]
+	if not is_instance_valid(item):
+		_marcador_seleccion.visible = false
+		return
+	var aabb := Util3D.aabb_mundo(item)
+	var top := aabb.position + Vector3(aabb.size.x * 0.5, aabb.size.y + 0.35 + sin(_t * 3.0) * 0.08, aabb.size.z * 0.5)
+	_marcador_seleccion.global_position = top
+	_marcador_seleccion.visible = true
+
+func _actualizar_hint() -> void:
+	if _hud_hint == null:
+		return
+	if _cargando():
+		if not _bins_cercanos.is_empty():
+			_hud_hint.text = "G: Depositar en " + _nombre_categoria(_bin_mas_cercano().get("categoria"))
+		else:
+			_hud_hint.text = "Llevá la basura al basurero correcto"
+	elif _cercanos.size() > 1:
+		_hud_hint.text = "F: Recoger     G: Cambiar (%d)" % _cercanos.size()
+	elif _cercanos.size() == 1:
+		_hud_hint.text = "F: Recoger"
+	else:
+		_hud_hint.text = ""
+
+	if _btn_pickup:
+		_btn_pickup.visible = (not _cargando()) and (not _cercanos.is_empty())
+	if _btn_switch:
+		_btn_switch.visible = (not _cargando()) and _cercanos.size() > 1
+	if _btn_deposit:
+		_btn_deposit.visible = _cargando() and not _bins_cercanos.is_empty()
+
+func _nombre_categoria(t) -> String:
+	if t == null:
+		return ""
+	return Categorias.nombre(int(t))
+
 func _unhandled_input(event: InputEvent) -> void:
-	# Soltar lo que se lleva (provisional hasta que existan los basureros).
-	if event.is_action_pressed("interact") and _cargando():
-		_soltar()
+	if event.is_action_pressed("pickup"):
+		_intentar_recoger()
+	elif event.is_action_pressed("switch_trash"):
+		# G es contextual: si llevás algo, intenta depositar; si no, cicla selección.
+		if _cargando():
+			_intentar_depositar()
+		else:
+			_ciclar_seleccion()
+	elif event.is_action_pressed("interact") and _cargando():
+		_soltar()   # drop manual (fallback)
 
 func _cargando() -> bool:
 	return _cat_cargada != -1
 
-# --- Recoger (automático al tocar) -----------------------------------------
+# --- Detección y selección de basura cercana --------------------------------
 
 func _on_area_entered(area: Area3D) -> void:
-	if _cargando():
+	if area is TrashItem and not _cercanos.has(area):
+		_cercanos.append(area)
+	elif area.is_in_group("basurero") and not _bins_cercanos.has(area):
+		_bins_cercanos.append(area)
+
+func _on_area_exited(area: Area3D) -> void:
+	if area is TrashItem and _cercanos.has(area):
+		var idx := _cercanos.find(area)
+		_cercanos.erase(area)
+		if _seleccion >= _cercanos.size():
+			_seleccion = max(0, _cercanos.size() - 1)
+		elif idx < _seleccion and _seleccion > 0:
+			_seleccion -= 1
+	elif area.is_in_group("basurero") and _bins_cercanos.has(area):
+		_bins_cercanos.erase(area)
+
+func _ciclar_seleccion() -> void:
+	if _cercanos.is_empty() or _cargando():
 		return
-	if area is TrashItem:
-		_recoger(area)
+	_seleccion = (_seleccion + 1) % _cercanos.size()
+
+# --- Recoger / soltar / depositar -------------------------------------------
+
+func _intentar_recoger() -> void:
+	if _cargando() or _cercanos.is_empty():
+		return
+	var item: TrashItem = _cercanos[_seleccion]
+	if not is_instance_valid(item):
+		_cercanos.remove_at(_seleccion)
+		return
+	_recoger(item)
 
 func _recoger(item: TrashItem) -> void:
 	_cat_cargada = item.categoria
 	_ruta_cargada = item.modelo_path
-	# Animación de agarrar del personaje.
 	var jugador := get_parent()
 	if jugador.has_method("reproducir_pickup"):
 		jugador.reproducir_pickup()
 	_crear_indicador(item.modelo_path)
 	_crear_preview_hud(item.modelo_path)
-	# La basura sale del mundo (ahora la lleva el jugador). Las demás siguen.
+	# Sacar de la lista y eliminar del mundo
+	_cercanos.erase(item)
+	if _seleccion >= _cercanos.size():
+		_seleccion = 0
 	item.queue_free()
+
+func _bin_mas_cercano() -> Area3D:
+	if _bins_cercanos.is_empty():
+		return null
+	var jugador := get_parent() as Node3D
+	if jugador == null:
+		return _bins_cercanos[0]
+	var pos := jugador.global_position
+	var mejor: Area3D = _bins_cercanos[0]
+	var mejor_d: float = pos.distance_squared_to(mejor.global_position)
+	for b in _bins_cercanos:
+		var d: float = pos.distance_squared_to(b.global_position)
+		if d < mejor_d:
+			mejor = b
+			mejor_d = d
+	return mejor
+
+func _intentar_depositar() -> void:
+	if not _cargando():
+		_mostrar_mensaje("Primero recogé una basura (F)", Color(1, 0.8, 0.3))
+		return
+	if _bins_cercanos.is_empty():
+		_mostrar_mensaje("Acércate a un basurero", Color(1, 0.8, 0.3))
+		return
+	var bin: Area3D = _bin_mas_cercano()
+	var cat_bin: int = int(bin.get("categoria"))
+	var acepta_todo: bool = bool(bin.get("acepta_todo"))
+	if acepta_todo or cat_bin == _cat_cargada:
+		var nombre := Categorias.nombre(_cat_cargada)
+		_sumar_monedas(1)
+		_mostrar_mensaje("¡Correcto! Era " + nombre + "  +1 🪙", Color(0.2, 1.0, 0.3))
+		_cat_cargada = -1
+		_ruta_cargada = ""
+		_limpiar_indicador()
+		_limpiar_preview_hud()
+	else:
+		var nombre_basura := Categorias.nombre(_cat_cargada)
+		var nombre_basurero := Categorias.nombre(cat_bin)
+		_sumar_monedas(-1)
+		_mostrar_mensaje("Ese basurero es para " + nombre_basurero + ", esto es " + nombre_basura + "  -1 🪙", Color(1, 0.3, 0.3))
+
+func _sumar_monedas(delta: int) -> void:
+	_monedas += delta
+	monedas_cambiaron.emit(_monedas, delta)
+
+func get_monedas() -> int:
+	return _monedas
+
+func _mostrar_mensaje(texto: String, color: Color) -> void:
+	if _hud_mensaje == null:
+		return
+	_hud_mensaje.text = texto
+	_hud_mensaje.add_theme_color_override("font_color", color)
+	_hud_mensaje.modulate.a = 1.0
+	_hud_mensaje_t = 1.6     # segundos antes de empezar a desvanecer
+
+func _soltar() -> void:
+	_cat_cargada = -1
+	_ruta_cargada = ""
+	_limpiar_indicador()
+	_limpiar_preview_hud()
 
 # --- Indicador 3D sobre el personaje ---------------------------------------
 
@@ -159,7 +410,6 @@ func _crear_indicador(ruta: String) -> void:
 	_indicador = escena.instantiate()
 	_punto_sujecion.add_child(_indicador)
 	await get_tree().process_frame
-	# Escalar a un tamaño consistente y centrar sobre el punto de sujeción.
 	var aabb := Util3D.aabb_mundo(_indicador)
 	var mayor: float = max(aabb.size.x, max(aabb.size.y, aabb.size.z))
 	var f: float = (escala_indicador / mayor) if mayor > 0.0 else 1.0
@@ -168,8 +418,6 @@ func _crear_indicador(ruta: String) -> void:
 	_indicador.scale = Vector3(f, f, f)
 	_indicador.position = -(centro - base) * f
 	_indicador_base_y = _indicador.position.y
-
-# --- Preview del HUD --------------------------------------------------------
 
 func _crear_preview_hud(ruta: String) -> void:
 	_limpiar_preview_hud()
@@ -186,19 +434,9 @@ func _crear_preview_hud(ruta: String) -> void:
 	var f: float = (1.4 / mayor) if mayor > 0.0 else 1.0
 	var centro := aabb.position + aabb.size * 0.5
 	m.scale = Vector3(f, f, f)
-	m.position = -centro * f       # centrar en el origen (frente a la cámara)
+	m.position = -centro * f
 	_hud_contenedor.visible = true
 	_hud_etiqueta.visible = true
-
-# --- Soltar / limpiar -------------------------------------------------------
-
-func _soltar() -> void:
-	# TODO PUNTAJE/BASUREROS: aquí, cuando vuelvan los basureros, se hará el
-	# depósito (comparar categoría) y se sumará/penalizará el puntaje en el HUD.
-	_cat_cargada = -1
-	_ruta_cargada = ""
-	_limpiar_indicador()
-	_limpiar_preview_hud()
 
 func _limpiar_indicador() -> void:
 	if _indicador:

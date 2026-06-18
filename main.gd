@@ -13,6 +13,7 @@ const TRASH_RADIO := 24.0            # radio de dispersión de la basura (amplio
 @onready var floor_body: StaticBody3D = $Floor
 @onready var floor_shape: CollisionShape3D = $Floor/CollisionShape3D
 @onready var contador_label: Label = $CanvasLayer/TextureRect/Label
+@onready var puntos_label: Label = $CanvasLayer/TextureRect2/Label
 @onready var timer: Timer = $Timer
 @onready var trash_spawner: TrashSpawner = $TrashSpawner
 
@@ -32,6 +33,29 @@ func _ready() -> void:
 	_generate_hangar_collisions()
 	_spawn_invisible_walls(aabb)
 	_spawn_bins_and_caps(aabb)
+	_conectar_contador_monedas()
+
+func _conectar_contador_monedas() -> void:
+	# Conecta la señal del PickupSystem del jugador al label de puntos del banner.
+	var jugador := get_node_or_null("Player")
+	if jugador == null or not jugador.has_method("get_pickup_system"):
+		return
+	var pickup = jugador.get_pickup_system()
+	if pickup == null:
+		return
+	pickup.monedas_cambiaron.connect(_on_monedas_cambiaron)
+	puntos_label.text = "%d" % pickup.get_monedas()
+
+func _on_monedas_cambiaron(total: int, delta: int) -> void:
+	puntos_label.text = "%d" % total
+	# Pop + tinte momentáneo (verde si suma, rojo si resta).
+	var color: Color = Color(0.2, 1.0, 0.3) if delta > 0 else Color(1.0, 0.3, 0.3)
+	puntos_label.add_theme_color_override("font_color", color)
+	puntos_label.pivot_offset = puntos_label.size * 0.5
+	var tw := create_tween()
+	tw.tween_property(puntos_label, "scale", Vector2(1.4, 1.4), 0.08)
+	tw.tween_property(puntos_label, "scale", Vector2.ONE, 0.18)
+	tw.tween_callback(func(): puntos_label.remove_theme_color_override("font_color"))
 
 # Genera colisiones REALES del hangar siguiendo la geometría del mesh.
 # Esto crea un StaticBody3D + ConcavePolygonShape3D por cada MeshInstance3D
@@ -39,11 +63,17 @@ func _ready() -> void:
 # choca exactamente con lo que ve. Es lo más cercano a un "level art = level
 # collision" y elimina la necesidad de paredes invisibles aproximadas.
 func _generate_hangar_collisions() -> void:
+	var count: int = _generar_colisiones_trimesh(angar)
+	print("[Hangar] Colisiones trimesh generadas para ", count, " meshes del Angar")
+
+# Recorre todos los MeshInstance3D descendientes de "raiz" y les crea una
+# colisión trimesh (StaticBody3D + ConcavePolygonShape3D) que sigue exactamente
+# la geometría visible. Devuelve la cantidad de meshes procesados.
+func _generar_colisiones_trimesh(raiz: Node) -> int:
 	var count: int = 0
-	for n in _all_descendants(angar):
+	for n in _all_descendants(raiz):
 		if n is MeshInstance3D:
 			var mi := n as MeshInstance3D
-			# Evitar duplicar colisión si ya se generó (re-ejecuciones, hot reload).
 			var already_has: bool = false
 			for c in mi.get_children():
 				if c is StaticBody3D:
@@ -53,10 +83,12 @@ func _generate_hangar_collisions() -> void:
 				continue
 			mi.create_trimesh_collision()
 			count += 1
-	print("[Hangar] Colisiones trimesh generadas para ", count, " meshes del Angar")
+	return count
 
+const BasureroScript := preload("res://basurero.gd")
 const BIN_AZUL := preload("res://basurero-azul.glb")
 const BIN_GRIS := preload("res://basurero-gris.glb")
+const BIN_VERDE := preload("res://basurero verde.glb")
 const BIN_NEGRO := preload("res://basurero-negro.glb")
 const CAP_COLLECTION := preload("res://Meshy_AI_Bottle_Cap_Collection_0618014945_texture.glb")
 
@@ -68,11 +100,15 @@ func _spawn_bins_and_caps(angar_aabb: AABB) -> void:
 	var y: float = FLOOR_TOP_Y
 
 	var spacing: float = 6.0
+	# Orden y categorías según las reglas de reciclaje del juego:
+	#   Azul = Plásticos, Gris = Papel y Cartón, Verde = Orgánicos,
+	#   Negro = No valorizables, CapCollection = Tapas plásticas exclusivas.
 	var items := [
-		{"scene": BIN_AZUL,       "scale": 1.5, "name": "BasureroAzul"},
-		{"scene": BIN_GRIS,       "scale": 1.5, "name": "BasureroGris"},
-		{"scene": BIN_NEGRO,      "scale": 1.5, "name": "BasureroNegro"},
-		{"scene": CAP_COLLECTION, "scale": 1.0, "name": "CapCollection"},
+		{"scene": BIN_AZUL,       "scale": 1.5, "name": "BasureroAzul",   "cat": Categorias.Tipo.AZUL,  "any": false},
+		{"scene": BIN_GRIS,       "scale": 1.5, "name": "BasureroGris",   "cat": Categorias.Tipo.GRIS,  "any": false},
+		{"scene": BIN_VERDE,      "scale": 1.5, "name": "BasureroVerde",  "cat": Categorias.Tipo.VERDE, "any": false},
+		{"scene": BIN_NEGRO,      "scale": 1.5, "name": "BasureroNegro",  "cat": Categorias.Tipo.NEGRO, "any": false},
+		{"scene": CAP_COLLECTION, "scale": 1.0, "name": "CapCollection",  "cat": Categorias.Tipo.TAPAS, "any": false},
 	]
 	var total: float = float(items.size() - 1) * spacing
 	var start_x: float = center_x - total * 0.5
@@ -88,6 +124,14 @@ func _spawn_bins_and_caps(angar_aabb: AABB) -> void:
 		root.add_child(inst)
 		inst.scale = Vector3(it["scale"], it["scale"], it["scale"])
 		inst.position = Vector3(start_x + float(i) * spacing, y, center_z)
+		# Área de depósito (Basurero) que detecta al jugador.
+		var bin: Area3D = BasureroScript.new()
+		bin.set("categoria", it["cat"])
+		bin.set("acepta_todo", it["any"])
+		bin.set("radio", 1.0)
+		inst.add_child(bin)
+		# Colisión física sobre la geometría del basurero (no se atraviesa).
+		_generar_colisiones_trimesh(inst)
 
 	print("[Bins] colocados ", items.size(), " objetos centrados en el hangar (", center_x, ",", center_z, ")")
 
