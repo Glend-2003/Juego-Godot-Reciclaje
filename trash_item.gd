@@ -13,6 +13,12 @@ var modelo_path: String = ""
 
 var _modelo: Node3D
 
+# Marcador flotante PERMANENTE sobre la basura, para verla siempre desde lejos.
+# Su color es el de la categoría/basurero al que pertenece.
+var _marcador: MeshInstance3D
+var _marcador_y0: float = 0.0
+var _t: float = 0.0
+
 # Fábrica: crea una basura lista para añadir a la escena.
 static func crear(cat: int, ruta: String) -> TrashItem:
 	var item := TrashItem.new()
@@ -62,3 +68,38 @@ func _ajustar_colision_y_apoyo() -> void:
 	col.shape = forma
 	col.position = Vector3(centro_local.x, centro_local.y + dy, centro_local.z)
 	add_child(col)
+
+	# Crear el marcador flotante justo encima del modelo.
+	_crear_marcador(aabb.size.y)
+
+# Pequeño diamante emisivo del color de la categoría, flotando sobre la basura.
+func _crear_marcador(altura_modelo: float) -> void:
+	_marcador = MeshInstance3D.new()
+	_marcador.name = "MarcadorUbicacion"
+	# Cono invertido (triángulo) que apunta hacia la basura, igual que el antiguo
+	# marcador de selección.
+	var cono := CylinderMesh.new()
+	cono.top_radius = 0.0
+	cono.bottom_radius = 0.18
+	cono.height = 0.35
+	_marcador.mesh = cono
+
+	var mat := StandardMaterial3D.new()
+	# Amarillo para TODAS: solo marca dónde está la basura, no de qué tipo es.
+	mat.albedo_color = Color(1.0, 0.9, 0.1)
+	mat.emission_enabled = true
+	mat.emission = Color(1.0, 0.85, 0.0)
+	mat.emission_energy_multiplier = 1.6
+	_marcador.material_override = mat
+
+	_marcador.rotation.x = PI   # punta hacia abajo
+	_marcador_y0 = altura_modelo + 0.5
+	_marcador.position.y = _marcador_y0
+	add_child(_marcador)
+
+func _process(delta: float) -> void:
+	if _marcador == null:
+		return
+	# Flota suavemente para llamar la atención.
+	_t += delta
+	_marcador.position.y = _marcador_y0 + sin(_t * 2.5) * 0.08

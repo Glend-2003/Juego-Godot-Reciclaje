@@ -17,6 +17,11 @@ const TRASH_RADIO := 24.0            # radio de dispersión de la basura (amplio
 @onready var timer: Timer = $Timer
 @onready var trash_spawner: TrashSpawner = $TrashSpawner
 
+# Se emite cuando el mundo terminó de construirse por completo (hangar, bosque,
+# colisiones, basureros y basura). La pantalla de carga espera esta señal para
+# recién entonces revelar el juego, evitando que se vea "armándose".
+signal mundo_listo
+
 # Contador de basura restante (panelito en la parte inferior-central).
 var _label_basura: Label
 var _basura_restante: int = -1
@@ -39,6 +44,16 @@ func _ready() -> void:
 	_spawn_bins_and_caps(aabb)
 	_conectar_contador_monedas()
 	_crear_contador_basura()
+
+	# Las basuras instancian su modelo de forma asíncrona; esperamos unos frames
+	# para que ya estén visibles antes de avisar que el mundo está listo.
+	await get_tree().process_frame
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+	# El mundo está completamente armado: avisamos para que se quite la pantalla
+	# de carga y se revele el juego ya listo.
+	mundo_listo.emit()
 
 	# Diálogo de bienvenida (frase aleatoria de la categoría "inicio").
 	DialogueManager.show_dialogue("inicio", "neutral")

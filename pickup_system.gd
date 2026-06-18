@@ -44,7 +44,6 @@ var _btn_deposit: Button
 # Basuras cercanas y selección actual
 var _cercanos: Array[TrashItem] = []
 var _seleccion: int = 0
-var _marcador_seleccion: MeshInstance3D
 
 # Basureros cercanos (Area3D con script Basurero)
 var _bins_cercanos: Array[Area3D] = []
@@ -56,7 +55,6 @@ var _ruta_cargada: String = ""
 func _ready() -> void:
 	_crear_punto_sujecion()
 	_crear_area_interaccion()
-	_crear_marcador_seleccion()
 	_construir_hud()
 
 func _crear_punto_sujecion() -> void:
@@ -86,26 +84,6 @@ func _crear_area_interaccion() -> void:
 	add_child(_area)
 	_area.area_entered.connect(_on_area_entered)
 	_area.area_exited.connect(_on_area_exited)
-
-func _crear_marcador_seleccion() -> void:
-	# Flecha invertida amarilla que se posa sobre la basura seleccionada.
-	_marcador_seleccion = MeshInstance3D.new()
-	_marcador_seleccion.name = "MarcadorSeleccion"
-	var cono := CylinderMesh.new()
-	cono.top_radius = 0.0
-	cono.bottom_radius = 0.18
-	cono.height = 0.35
-	_marcador_seleccion.mesh = cono
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(1.0, 0.9, 0.1)
-	mat.emission_enabled = true
-	mat.emission = Color(1.0, 0.85, 0.0)
-	mat.emission_energy_multiplier = 1.4
-	_marcador_seleccion.material_override = mat
-	_marcador_seleccion.rotation.x = PI  # punta hacia abajo
-	_marcador_seleccion.visible = false
-	# Lo colgamos directamente de la escena raíz para que no rote con el jugador.
-	get_tree().root.add_child.call_deferred(_marcador_seleccion)
 
 # --- HUD --------------------------------------------------------------------
 
@@ -222,9 +200,6 @@ func _process(delta: float) -> void:
 	if _seleccion >= _cercanos.size():
 		_seleccion = 0
 
-	# Mover el marcador sobre la basura seleccionada
-	_actualizar_marcador()
-
 	# Indicador flotante sobre el jugador
 	if _indicador:
 		_indicador.rotate_y(vel_rotacion * delta)
@@ -235,21 +210,6 @@ func _process(delta: float) -> void:
 	# Texto contextual
 	_actualizar_hint()
 
-
-func _actualizar_marcador() -> void:
-	if _marcador_seleccion == null or not is_instance_valid(_marcador_seleccion):
-		return
-	if _cargando() or _cercanos.is_empty():
-		_marcador_seleccion.visible = false
-		return
-	var item: TrashItem = _cercanos[_seleccion]
-	if not is_instance_valid(item):
-		_marcador_seleccion.visible = false
-		return
-	var aabb := Util3D.aabb_mundo(item)
-	var top := aabb.position + Vector3(aabb.size.x * 0.5, aabb.size.y + 0.35 + sin(_t * 3.0) * 0.08, aabb.size.z * 0.5)
-	_marcador_seleccion.global_position = top
-	_marcador_seleccion.visible = true
 
 func _actualizar_hint() -> void:
 	if _hud_hint == null:

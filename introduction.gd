@@ -12,4 +12,6 @@ func _process(delta: float) -> void:
 
 
 func _on_texture_button_pressed() -> void:
-	get_tree().change_scene_to_file("res://main.tscn")
+	# Vamos a la pantalla de carga, que carga el mundo en segundo plano y luego
+	# entra a main.tscn.
+	get_tree().change_scene_to_file("res://loading.tscn")
