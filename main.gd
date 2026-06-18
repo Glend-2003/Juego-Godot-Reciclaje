@@ -35,6 +35,9 @@ func _ready() -> void:
 	_spawn_bins_and_caps(aabb)
 	_conectar_contador_monedas()
 
+	# Diálogo de bienvenida (frase aleatoria de la categoría "inicio").
+	DialogueManager.show_dialogue("inicio", "neutral")
+
 func _conectar_contador_monedas() -> void:
 	# Conecta la señal del PickupSystem del jugador al label de puntos del banner.
 	var jugador := get_node_or_null("Player")
@@ -301,3 +304,5 @@ func _on_timer_timeout() -> void:
 	if tiempo <= 0:
 		timer.stop()
 		contador_label.text = "00:00"
+		# Diálogo de cierre (frase aleatoria de la categoría "final").
+		DialogueManager.show_dialogue("final", "neutral")

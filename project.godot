@@ -15,6 +15,10 @@ run/main_scene="uid://drsu1jlrpveka"
 config/features=PackedStringArray("4.6", "GL Compatibility")
 config/icon="res://icon.svg"
 
+[autoload]
+
+DialogueManager="*res://DialogueManager.gd"
+
 [input]
 
 move_forward={

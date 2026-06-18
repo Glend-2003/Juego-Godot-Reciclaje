@@ -29,9 +29,11 @@ var _hud_viewport: SubViewport
 var _hud_soporte: Node3D
 var _hud_etiqueta: Label
 var _hud_hint: Label
-var _hud_mensaje: Label                  # mensajes de éxito/error de depósito
-var _hud_mensaje_t: float = 0.0
 var _monedas: int = 0
+
+# Contadores de rachas para los diálogos de combo/fallos.
+var _aciertos_seguidos: int = 0
+var _fallos_seguidos: int = 0
 
 signal monedas_cambiaron(total: int, delta: int)
 var _btn_pickup: Button
@@ -152,20 +154,6 @@ func _construir_hud() -> void:
 	_hud_hint.add_theme_constant_override("outline_size", 6)
 	capa.add_child(_hud_hint)
 
-	# Mensaje grande centrado para éxito/error al depositar.
-	_hud_mensaje = Label.new()
-	_hud_mensaje.text = ""
-	_hud_mensaje.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_hud_mensaje.add_theme_font_size_override("font_size", 42)
-	_hud_mensaje.add_theme_color_override("font_outline_color", Color(0, 0, 0))
-	_hud_mensaje.add_theme_constant_override("outline_size", 8)
-	_hud_mensaje.anchor_left = 0.0
-	_hud_mensaje.anchor_right = 1.0
-	_hud_mensaje.anchor_top = 0.15
-	_hud_mensaje.anchor_bottom = 0.15
-	_hud_mensaje.modulate.a = 0.0
-	capa.add_child(_hud_mensaje)
-
 	# Botones táctiles SOLO en móvil.
 	if OS.has_feature("mobile") or DisplayServer.is_touchscreen_available():
 		_btn_pickup = _crear_boton_movil("Recoger", Vector2(0, -220))
@@ -223,12 +211,6 @@ func _process(delta: float) -> void:
 
 	# Texto contextual
 	_actualizar_hint()
-
-	# Fade del mensaje de feedback
-	if _hud_mensaje and _hud_mensaje.modulate.a > 0.0:
-		_hud_mensaje_t -= delta
-		if _hud_mensaje_t <= 0.0:
-			_hud_mensaje.modulate.a = max(0.0, _hud_mensaje.modulate.a - delta * 1.5)
 
 
 func _actualizar_marcador() -> void:
@@ -354,28 +336,44 @@ func _bin_mas_cercano() -> Area3D:
 	return mejor
 
 func _intentar_depositar() -> void:
+	# Mensajes informativos (no son acierto ni error de clasificación): café/neutral.
 	if not _cargando():
-		_mostrar_mensaje("Primero recogé una basura (F)", Color(1, 0.8, 0.3))
+		DialogueManager.show_text("Primero recogé una basura (F)", "neutral")
 		return
 	if _bins_cercanos.is_empty():
-		_mostrar_mensaje("Acércate a un basurero", Color(1, 0.8, 0.3))
+		DialogueManager.show_text("Acércate a un basurero", "neutral")
 		return
+
 	var bin: Area3D = _bin_mas_cercano()
 	var cat_bin: int = int(bin.get("categoria"))
 	var acepta_todo: bool = bool(bin.get("acepta_todo"))
+
 	if acepta_todo or cat_bin == _cat_cargada:
-		var nombre := Categorias.nombre(_cat_cargada)
+		# --- ACIERTO ---
 		_sumar_monedas(1)
-		_mostrar_mensaje("¡Correcto! Era " + nombre + "  +1 🪙", Color(0.2, 1.0, 0.3))
+		_aciertos_seguidos += 1
+		_fallos_seguidos = 0
+		# Combo: a los 10 aciertos "combo10", a los 5/15/25... "combo5".
+		if _aciertos_seguidos % 10 == 0:
+			DialogueManager.show_dialogue("combo10", "good")
+		elif _aciertos_seguidos % 5 == 0:
+			DialogueManager.show_dialogue("combo5", "good")
+		else:
+			DialogueManager.show_dialogue("correcto", "good")
 		_cat_cargada = -1
 		_ruta_cargada = ""
 		_limpiar_indicador()
 		_limpiar_preview_hud()
 	else:
-		var nombre_basura := Categorias.nombre(_cat_cargada)
-		var nombre_basurero := Categorias.nombre(cat_bin)
+		# --- ERROR (basurero equivocado) ---
 		_sumar_monedas(-1)
-		_mostrar_mensaje("Ese basurero es para " + nombre_basurero + ", esto es " + nombre_basura + "  -1 🪙", Color(1, 0.3, 0.3))
+		_fallos_seguidos += 1
+		_aciertos_seguidos = 0
+		# A los 3 fallos seguidos, reproche extra; si no, frase de error normal.
+		if _fallos_seguidos % 3 == 0:
+			DialogueManager.show_dialogue("fallos3", "bad")
+		else:
+			DialogueManager.show_dialogue("error", "bad")
 
 func _sumar_monedas(delta: int) -> void:
 	_monedas += delta
@@ -383,14 +381,6 @@ func _sumar_monedas(delta: int) -> void:
 
 func get_monedas() -> int:
 	return _monedas
-
-func _mostrar_mensaje(texto: String, color: Color) -> void:
-	if _hud_mensaje == null:
-		return
-	_hud_mensaje.text = texto
-	_hud_mensaje.add_theme_color_override("font_color", color)
-	_hud_mensaje.modulate.a = 1.0
-	_hud_mensaje_t = 1.6     # segundos antes de empezar a desvanecer
 
 func _soltar() -> void:
 	_cat_cargada = -1
