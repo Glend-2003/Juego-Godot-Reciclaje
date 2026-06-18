@@ -26,6 +26,22 @@ signal mundo_listo
 var _label_basura: Label
 var _basura_restante: int = -1
 
+# --- Condiciones de victoria / derrota --------------------------------------
+# Victoria: clasificar correctamente TODA la basura antes de que se acabe el
+# tiempo. Derrota: que el reloj llegue a 00:00 con basura sin clasificar.
+var _total_basura: int = 0        # cuántas basuras hay que clasificar en total
+var _clasificadas_ok: int = 0     # cuántas se han depositado correctamente
+var _juego_terminado: bool = false
+
+# Vidas del personaje: cada depósito en el basurero equivocado cuesta una vida.
+# Al llegar a 0 se pierde la partida.
+const VIDAS_MAX := 3
+var _vidas: int = VIDAS_MAX
+var _label_vidas: Label
+
+# Menú de pausa (ESC): null = cerrado, CanvasLayer = abierto.
+var _pausa_capa: CanvasLayer = null
+
 func _ready() -> void:
 	await get_tree().process_frame
 	var aabb := _world_aabb(angar)
@@ -44,6 +60,7 @@ func _ready() -> void:
 	_spawn_bins_and_caps(aabb)
 	_conectar_contador_monedas()
 	_crear_contador_basura()
+	_crear_contador_vidas()
 
 	# Las basuras instancian su modelo de forma asíncrona; esperamos unos frames
 	# para que ya estén visibles antes de avisar que el mundo está listo.
@@ -99,6 +116,50 @@ func _crear_contador_basura() -> void:
 	tarjeta.add_child(_label_basura)
 	_actualizar_contador_basura()
 
+# Panelito de vidas (corazones) estilo madera, anclado arriba-izquierda debajo
+# del cronómetro.
+func _crear_contador_vidas() -> void:
+	var capa: CanvasLayer = $CanvasLayer
+	var tarjeta := PanelContainer.new()
+	tarjeta.name = "ContadorVidas"
+	tarjeta.anchor_left = 0.0
+	tarjeta.anchor_top = 0.0
+	tarjeta.offset_left = 20
+	tarjeta.offset_top = 176
+	tarjeta.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	var estilo := StyleBoxFlat.new()
+	estilo.bg_color = Color(0.16, 0.11, 0.07, 0.88)
+	estilo.set_corner_radius_all(12)
+	estilo.set_content_margin_all(8)
+	estilo.content_margin_left = 16
+	estilo.content_margin_right = 16
+	estilo.set_border_width_all(2)
+	estilo.border_color = Color("C0392B")             # rojo (vidas)
+	estilo.shadow_color = Color(0, 0, 0, 0.4)
+	estilo.shadow_size = 4
+	estilo.shadow_offset = Vector2(0, 3)
+	tarjeta.add_theme_stylebox_override("panel", estilo)
+	capa.add_child(tarjeta)
+
+	_label_vidas = Label.new()
+	_label_vidas.add_theme_color_override("font_color", Color(1.0, 0.3, 0.3))
+	_label_vidas.add_theme_color_override("font_outline_color", Color(0, 0, 0))
+	_label_vidas.add_theme_constant_override("outline_size", 5)
+	_label_vidas.add_theme_font_size_override("font_size", 22)
+	_label_vidas.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tarjeta.add_child(_label_vidas)
+	_actualizar_vidas()
+
+# Dibuja las vidas como corazones llenos (♥) y vacíos (♡).
+func _actualizar_vidas() -> void:
+	if _label_vidas == null:
+		return
+	var s := ""
+	for i in range(VIDAS_MAX):
+		s += "♥" if i < _vidas else "♡"
+	_label_vidas.text = s
+
 # Refresca el texto solo cuando cambia el número (evita reescribir cada frame).
 func _actualizar_contador_basura() -> void:
 	if _label_basura == null:
@@ -118,7 +179,27 @@ func _conectar_contador_monedas() -> void:
 	if pickup == null:
 		return
 	pickup.monedas_cambiaron.connect(_on_monedas_cambiaron)
+	if pickup.has_signal("basura_clasificada"):
+		pickup.basura_clasificada.connect(_on_basura_clasificada)
+	# Para que la basura soltada con E vuelva al piso y siga siendo recolectable.
+	pickup.set("_respawn_parent", trash_spawner)
 	puntos_label.text = "%d" % pickup.get_monedas()
+
+# Cada vez que el jugador deposita una basura. Si fue correcta, suma a la meta;
+# al clasificar TODA la basura, gana.
+func _on_basura_clasificada(correcta: bool) -> void:
+	if _juego_terminado:
+		return
+	if correcta:
+		_clasificadas_ok += 1
+		if _total_basura > 0 and _clasificadas_ok >= _total_basura:
+			_terminar_juego(true)
+	else:
+		# Error de clasificación: cuesta una vida. Sin vidas, se pierde.
+		_vidas -= 1
+		_actualizar_vidas()
+		if _vidas <= 0:
+			_terminar_juego(false)
 
 func _on_monedas_cambiaron(total: int, delta: int) -> void:
 	puntos_label.text = "%d" % total
@@ -226,6 +307,12 @@ func _spawn_bins_and_caps(angar_aabb: AABB) -> void:
 	)
 	# Genera la basura aleatoria alrededor del centro (no desaparece sola).
 	trash_spawner.generar(centro, TRASH_RADIO, FLOOR_TOP_Y)
+
+	# Total de basura a clasificar: es la meta de victoria. Las basuras se añaden
+	# de forma síncrona (su _ready las mete al grupo "basura"), así que ya están
+	# todas contadas en este punto.
+	_total_basura = get_tree().get_nodes_in_group("basura").size()
+	print("[Win] Total de basura a clasificar: ", _total_basura)
 
 # Paredes invisibles en el perímetro del hangar como red de seguridad: aunque las
 # colisiones reales del Angar bloquean las paredes visibles, este muro extra
@@ -373,15 +460,235 @@ var tiempo := 180
 
 
 func _on_timer_timeout() -> void:
+	if _juego_terminado:
+		return
 	tiempo -= 1
-	
+
 	var minutos = tiempo / 60
 	var segundos = tiempo % 60
 
 	contador_label.text = "%02d:%02d" % [minutos, segundos]
 
 	if tiempo <= 0:
-		timer.stop()
 		contador_label.text = "00:00"
-		# Diálogo de cierre (frase aleatoria de la categoría "final").
+		# Se acabó el tiempo con basura sin clasificar: derrota.
+		_terminar_juego(false)
+
+# --- Fin de partida ---------------------------------------------------------
+
+# Cierra la partida: detiene el reloj, muestra el panel de resultado y pausa el
+# juego. 'gano' = true si el jugador clasificó toda la basura a tiempo.
+func _terminar_juego(gano: bool) -> void:
+	if _juego_terminado:
+		return
+	_juego_terminado = true
+	timer.stop()
+	# El jugador captura el mouse para la cámara; lo liberamos para que el cursor
+	# vuelva a verse y se puedan tocar los botones del panel de resultado.
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	if gano:
+		DialogueManager.show_text("¡Clasificaste toda la basura! ¡Ganaste!", "good")
+	else:
+		# Frase de cierre (categoría "final").
 		DialogueManager.show_dialogue("final", "neutral")
+	_mostrar_panel_resultado(gano)
+	get_tree().paused = true
+
+# Panel central con el resultado (victoria/derrota), el resumen y los botones
+# Reintentar / Menú. Vive en su propia CanvasLayer en modo ALWAYS para seguir
+# respondiendo aunque el árbol esté pausado.
+func _mostrar_panel_resultado(gano: bool) -> void:
+	var capa := CanvasLayer.new()
+	capa.name = "ResultadoLayer"
+	capa.layer = 150
+	capa.process_mode = Node.PROCESS_MODE_ALWAYS
+	add_child(capa)
+
+	# Fondo oscuro que atenúa el juego de atrás.
+	var fondo := ColorRect.new()
+	fondo.color = Color(0, 0, 0, 0.55)
+	fondo.set_anchors_preset(Control.PRESET_FULL_RECT)
+	capa.add_child(fondo)
+
+	# Tarjeta central estilo madera (en armonía con el resto del HUD).
+	var tarjeta := PanelContainer.new()
+	tarjeta.anchor_left = 0.5
+	tarjeta.anchor_right = 0.5
+	tarjeta.anchor_top = 0.5
+	tarjeta.anchor_bottom = 0.5
+	tarjeta.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	tarjeta.grow_vertical = Control.GROW_DIRECTION_BOTH
+	var estilo := StyleBoxFlat.new()
+	estilo.bg_color = Color(0.16, 0.11, 0.07, 0.96)
+	estilo.set_corner_radius_all(16)
+	estilo.set_content_margin_all(28)
+	estilo.set_border_width_all(3)
+	estilo.border_color = Color("7CB342") if gano else Color("C0392B")
+	estilo.shadow_color = Color(0, 0, 0, 0.5)
+	estilo.shadow_size = 8
+	tarjeta.add_theme_stylebox_override("panel", estilo)
+	capa.add_child(tarjeta)
+
+	var caja := VBoxContainer.new()
+	caja.add_theme_constant_override("separation", 14)
+	caja.alignment = BoxContainer.ALIGNMENT_CENTER
+	tarjeta.add_child(caja)
+
+	var titulo := Label.new()
+	if gano:
+		titulo.text = "¡GANASTE!"
+	elif _vidas <= 0:
+		titulo.text = "¡TE QUEDASTE SIN VIDAS!"
+	else:
+		titulo.text = "¡SE ACABÓ EL TIEMPO!"
+	titulo.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	titulo.add_theme_font_size_override("font_size", 40)
+	titulo.add_theme_color_override("font_color", Color("7CB342") if gano else Color("E74C3C"))
+	titulo.add_theme_color_override("font_outline_color", Color(0, 0, 0))
+	titulo.add_theme_constant_override("outline_size", 6)
+	caja.add_child(titulo)
+
+	var monedas: int = 0
+	var jugador := get_node_or_null("Player")
+	if jugador and jugador.has_method("get_pickup_system"):
+		var ps = jugador.get_pickup_system()
+		if ps:
+			monedas = ps.get_monedas()
+
+	var t: int = max(tiempo, 0)
+	var resumen := Label.new()
+	resumen.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	resumen.add_theme_font_size_override("font_size", 22)
+	resumen.add_theme_color_override("font_color", Color(1, 1, 1))
+	resumen.add_theme_color_override("font_outline_color", Color(0, 0, 0))
+	resumen.add_theme_constant_override("outline_size", 4)
+	resumen.text = "Clasificadas: %d / %d\nPuntos: %d\nVidas: %d / %d\nTiempo restante: %02d:%02d" % [
+		_clasificadas_ok, _total_basura, monedas, max(_vidas, 0), VIDAS_MAX, t / 60, t % 60
+	]
+	caja.add_child(resumen)
+
+	var fila := HBoxContainer.new()
+	fila.add_theme_constant_override("separation", 16)
+	fila.alignment = BoxContainer.ALIGNMENT_CENTER
+	caja.add_child(fila)
+
+	var btn_retry := _crear_boton_resultado("Reintentar")
+	btn_retry.pressed.connect(_on_reintentar)
+	fila.add_child(btn_retry)
+
+	var btn_menu := _crear_boton_resultado("Menú")
+	btn_menu.pressed.connect(_on_volver_menu)
+	fila.add_child(btn_menu)
+
+func _crear_boton_resultado(texto: String) -> Button:
+	var b := Button.new()
+	b.text = texto
+	b.custom_minimum_size = Vector2(170, 60)
+	b.add_theme_font_size_override("font_size", 24)
+	return b
+
+func _on_reintentar() -> void:
+	get_tree().paused = false
+	get_tree().change_scene_to_file("res://loading.tscn")
+
+func _on_volver_menu() -> void:
+	get_tree().paused = false
+	get_tree().change_scene_to_file("res://mainMenu.tscn")
+
+# --- Menú de pausa (ESC) ----------------------------------------------------
+
+# ESC abre/cierra el menú de pausa mientras la partida está en curso. No usamos
+# get_tree().paused para no perder el control del propio menú: en su lugar
+# congelamos el reloj y deshabilitamos al jugador.
+func _unhandled_input(event: InputEvent) -> void:
+	if _juego_terminado:
+		return
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
+		if _pausa_capa == null:
+			_abrir_pausa()
+		else:
+			_cerrar_pausa()
+		get_viewport().set_input_as_handled()
+
+func _abrir_pausa() -> void:
+	if _pausa_capa != null:
+		return
+	# Congela el reloj y al jugador, y libera el mouse para tocar los botones.
+	timer.paused = true
+	var jugador := get_node_or_null("Player")
+	if jugador:
+		jugador.process_mode = Node.PROCESS_MODE_DISABLED
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	_pausa_capa = _construir_menu_pausa()
+	add_child(_pausa_capa)
+
+func _cerrar_pausa() -> void:
+	if _pausa_capa == null:
+		return
+	_pausa_capa.queue_free()
+	_pausa_capa = null
+	timer.paused = false
+	var jugador := get_node_or_null("Player")
+	if jugador:
+		jugador.process_mode = Node.PROCESS_MODE_INHERIT
+	# Vuelve a capturar el mouse para la cámara del jugador.
+	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+func _construir_menu_pausa() -> CanvasLayer:
+	var capa := CanvasLayer.new()
+	capa.name = "PausaLayer"
+	capa.layer = 140
+	capa.process_mode = Node.PROCESS_MODE_ALWAYS
+
+	# Fondo oscuro que atenúa el juego de atrás.
+	var fondo := ColorRect.new()
+	fondo.color = Color(0, 0, 0, 0.5)
+	fondo.set_anchors_preset(Control.PRESET_FULL_RECT)
+	capa.add_child(fondo)
+
+	# Tarjeta central estilo madera (misma identidad visual del resto del HUD).
+	var tarjeta := PanelContainer.new()
+	tarjeta.anchor_left = 0.5
+	tarjeta.anchor_right = 0.5
+	tarjeta.anchor_top = 0.5
+	tarjeta.anchor_bottom = 0.5
+	tarjeta.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	tarjeta.grow_vertical = Control.GROW_DIRECTION_BOTH
+	var estilo := StyleBoxFlat.new()
+	estilo.bg_color = Color(0.16, 0.11, 0.07, 0.96)
+	estilo.set_corner_radius_all(16)
+	estilo.set_content_margin_all(28)
+	estilo.set_border_width_all(3)
+	estilo.border_color = Color("7CB342")
+	estilo.shadow_color = Color(0, 0, 0, 0.5)
+	estilo.shadow_size = 8
+	tarjeta.add_theme_stylebox_override("panel", estilo)
+	capa.add_child(tarjeta)
+
+	var caja := VBoxContainer.new()
+	caja.add_theme_constant_override("separation", 14)
+	caja.alignment = BoxContainer.ALIGNMENT_CENTER
+	tarjeta.add_child(caja)
+
+	var titulo := Label.new()
+	titulo.text = "PAUSA"
+	titulo.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	titulo.add_theme_font_size_override("font_size", 36)
+	titulo.add_theme_color_override("font_color", Color("7CB342"))
+	titulo.add_theme_color_override("font_outline_color", Color(0, 0, 0))
+	titulo.add_theme_constant_override("outline_size", 6)
+	caja.add_child(titulo)
+
+	var btn_reanudar := _crear_boton_resultado("Reanudar")
+	btn_reanudar.pressed.connect(_cerrar_pausa)
+	caja.add_child(btn_reanudar)
+
+	var btn_retry := _crear_boton_resultado("Reiniciar")
+	btn_retry.pressed.connect(_on_reintentar)
+	caja.add_child(btn_retry)
+
+	var btn_menu := _crear_boton_resultado("Salir al menú")
+	btn_menu.pressed.connect(_on_volver_menu)
+	caja.add_child(btn_menu)
+
+	return capa

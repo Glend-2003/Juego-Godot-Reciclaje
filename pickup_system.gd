@@ -37,6 +37,16 @@ var _aciertos_seguidos: int = 0
 var _fallos_seguidos: int = 0
 
 signal monedas_cambiaron(total: int, delta: int)
+# Se emite cada vez que el jugador deposita una basura en un basurero.
+# 'correcta' = true si fue al basurero adecuado. main.gd la usa para la
+# condición de victoria (clasificar TODA la basura correctamente).
+signal basura_clasificada(correcta: bool)
+
+# Nodo bajo el cual reaparece la basura si el jugador la suelta manualmente, para
+# que siga siendo recolectable (la meta exige clasificar TODA la basura, así que
+# soltarla NO debe hacerla desaparecer del juego). Lo asigna main.gd.
+var _respawn_parent: Node = null
+
 var _btn_pickup: Button
 var _btn_switch: Button
 var _btn_deposit: Button
@@ -332,6 +342,7 @@ func _intentar_depositar() -> void:
 
 	if acepta_todo or cat_bin == _cat_cargada:
 		# --- ACIERTO ---
+		basura_clasificada.emit(true)
 		_sumar_monedas(1)
 		_aciertos_seguidos += 1
 		_fallos_seguidos = 0
@@ -348,7 +359,10 @@ func _intentar_depositar() -> void:
 		_limpiar_preview_hud()
 	else:
 		# --- ERROR (basurero equivocado) ---
-		_sumar_monedas(-1)
+		# La basura NO se deposita: el jugador la sigue cargando para reintentar.
+		# No resta puntos; el costo del error es perder una vida (lo maneja main.gd
+		# al recibir basura_clasificada(false)).
+		basura_clasificada.emit(false)
 		_fallos_seguidos += 1
 		_aciertos_seguidos = 0
 		# A los 3 fallos seguidos, reproche extra; si no, frase de error normal.
@@ -358,13 +372,23 @@ func _intentar_depositar() -> void:
 			DialogueManager.show_dialogue("error", "bad")
 
 func _sumar_monedas(delta: int) -> void:
-	_monedas += delta
+	# Los puntos nunca bajan de 0.
+	_monedas = max(0, _monedas + delta)
 	monedas_cambiaron.emit(_monedas, delta)
 
 func get_monedas() -> int:
 	return _monedas
 
 func _soltar() -> void:
+	# Devuelve la basura al mundo (no se pierde): la meta exige clasificar TODA
+	# la basura, así que soltarla debe dejarla recolectable de nuevo en el piso.
+	if _cat_cargada != -1 and _ruta_cargada != "" and is_instance_valid(_respawn_parent):
+		var item := TrashItem.crear(_cat_cargada, _ruta_cargada)
+		_respawn_parent.add_child(item)
+		var jugador := get_parent() as Node3D
+		if jugador:
+			var p := jugador.global_position
+			item.global_position = Vector3(p.x, 1.75, p.z)
 	_cat_cargada = -1
 	_ruta_cargada = ""
 	_limpiar_indicador()
