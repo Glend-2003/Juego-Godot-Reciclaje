@@ -3,9 +3,10 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://2kwy1i1idg4l"
-path="res://.godot/imported/Clean_Bottle_New_Image_1.jpg-0c650d6bc920f42e10836670c2440be4.ctex"
+path.s3tc="res://.godot/imported/Clean_Bottle_New_Image_1.jpg-0c650d6bc920f42e10836670c2440be4.s3tc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "01f430e04413dc634b7e9d6a7be132a6"
@@ -14,11 +15,11 @@ generator_parameters={
 [deps]
 
 source_file="res://Game 3D/Game 3D/Basurero Azul/Clean_Bottle_New_Image_1.jpg"
-dest_files=["res://.godot/imported/Clean_Bottle_New_Image_1.jpg-0c650d6bc920f42e10836670c2440be4.ctex"]
+dest_files=["res://.godot/imported/Clean_Bottle_New_Image_1.jpg-0c650d6bc920f42e10836670c2440be4.s3tc.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
@@ -40,4 +41,4 @@ process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
 process/size_limit=0
-detect_3d/compress_to=1
+detect_3d/compress_to=0

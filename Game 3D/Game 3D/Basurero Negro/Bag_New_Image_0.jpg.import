@@ -3,9 +3,10 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://bt2uvk45s3x8y"
-path="res://.godot/imported/Bag_New_Image_0.jpg-54dcb128a9d40b9727129dbfec4e65dc.ctex"
+path.s3tc="res://.godot/imported/Bag_New_Image_0.jpg-54dcb128a9d40b9727129dbfec4e65dc.s3tc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "89a906f2f8ce182997fd67d5d050b46e"
@@ -14,11 +15,11 @@ generator_parameters={
 [deps]
 
 source_file="res://Game 3D/Game 3D/Basurero Negro/Bag_New_Image_0.jpg"
-dest_files=["res://.godot/imported/Bag_New_Image_0.jpg-54dcb128a9d40b9727129dbfec4e65dc.ctex"]
+dest_files=["res://.godot/imported/Bag_New_Image_0.jpg-54dcb128a9d40b9727129dbfec4e65dc.s3tc.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
@@ -40,4 +41,4 @@ process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
 process/size_limit=0
-detect_3d/compress_to=1
+detect_3d/compress_to=0

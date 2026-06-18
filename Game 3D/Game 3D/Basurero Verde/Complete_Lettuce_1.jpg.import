@@ -3,9 +3,10 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://cuosy7rca0j3w"
-path="res://.godot/imported/Complete_Lettuce_1.jpg-dbada9d6d80964ca01c09f4a67aad130.ctex"
+path.s3tc="res://.godot/imported/Complete_Lettuce_1.jpg-dbada9d6d80964ca01c09f4a67aad130.s3tc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "f18de668e1d457607199c2eeb3ad1a7e"
@@ -14,11 +15,11 @@ generator_parameters={
 [deps]
 
 source_file="res://Game 3D/Game 3D/Basurero Verde/Complete_Lettuce_1.jpg"
-dest_files=["res://.godot/imported/Complete_Lettuce_1.jpg-dbada9d6d80964ca01c09f4a67aad130.ctex"]
+dest_files=["res://.godot/imported/Complete_Lettuce_1.jpg-dbada9d6d80964ca01c09f4a67aad130.s3tc.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
@@ -40,4 +41,4 @@ process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
 process/size_limit=0
-detect_3d/compress_to=1
+detect_3d/compress_to=0

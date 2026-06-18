@@ -30,13 +30,50 @@ func _ready() -> void:
 
 	_spawn_forest(aabb)
 	_spawn_invisible_walls(aabb)
+	_spawn_bins_and_caps(aabb)
+
+const BIN_AZUL := preload("res://basurero-azul.glb")
+const BIN_GRIS := preload("res://basurero-gris.glb")
+const BIN_NEGRO := preload("res://basurero-negro.glb")
+const CAP_COLLECTION := preload("res://Meshy_AI_Bottle_Cap_Collection_0618014945_texture.glb")
+
+func _spawn_bins_and_caps(angar_aabb: AABB) -> void:
+	# Coloca los 3 basureros + la colección de tapas en una línea centrada
+	# dentro del hangar para que el jugador los vea al entrar.
+	var center_x: float = angar_aabb.position.x + angar_aabb.size.x * 0.5
+	var center_z: float = angar_aabb.position.z + angar_aabb.size.z * 0.5
+	var y: float = FLOOR_TOP_Y
+
+	var spacing: float = 6.0
+	var items := [
+		{"scene": BIN_AZUL,       "scale": 1.5, "name": "BasureroAzul"},
+		{"scene": BIN_GRIS,       "scale": 1.5, "name": "BasureroGris"},
+		{"scene": BIN_NEGRO,      "scale": 1.5, "name": "BasureroNegro"},
+		{"scene": CAP_COLLECTION, "scale": 1.0, "name": "CapCollection"},
+	]
+	var total: float = float(items.size() - 1) * spacing
+	var start_x: float = center_x - total * 0.5
+
+	var root := Node3D.new()
+	root.name = "Bins"
+	add_child(root)
+
+	for i in range(items.size()):
+		var it: Dictionary = items[i]
+		var inst: Node3D = (it["scene"] as PackedScene).instantiate()
+		inst.name = it["name"]
+		root.add_child(inst)
+		inst.scale = Vector3(it["scale"], it["scale"], it["scale"])
+		inst.position = Vector3(start_x + float(i) * spacing, y, center_z)
+
+	print("[Bins] colocados ", items.size(), " objetos centrados en el hangar (", center_x, ",", center_z, ")")
 
 	# Centro del hangar a la altura del piso: punto de referencia para la basura
 	# y los basureros.
 	var centro := Vector3(
-		aabb.position.x + aabb.size.x * 0.5,
+		angar_aabb.position.x + angar_aabb.size.x * 0.5,
 		FLOOR_TOP_Y,
-		aabb.position.z + aabb.size.z * 0.5
+		angar_aabb.position.z + angar_aabb.size.z * 0.5
 	)
 	# Genera la basura aleatoria alrededor del centro (no desaparece sola).
 	trash_spawner.generar(centro, TRASH_RADIO, FLOOR_TOP_Y)
