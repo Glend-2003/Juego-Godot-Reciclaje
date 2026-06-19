@@ -27,10 +27,19 @@ Errores (categoría "error"):
 
 Combo de 5 aciertos (categoría "combo5"):
   carck-fiera-mastodonte-numero-uno.mp3
+  mae-esta-intratable.mp3
+  que-monstruo-no-falla-ninguna.mp3
 
 Combo de 10 aciertos (categoría "combo10"):
   bien-mae-se-merece-beca-10.mp3
   que-saico-ya-casi-lo-contrata-la-muni.mp3
+  ya-casi-le-dan-una-beca-en-reciclaje.mp3
+
+Racha mala: 3 errores seguidos (categoría "fallos3"):
+  esta-clasificando-basura-o-tirando-dados.mp3
+  mae-andas-trasnochado.mp3
+  mae-legalmente-esta-haciendo-un-experimento-social.mp3
+  mae-ni-al-propio-sale-tan-mal.mp3
 
 Pendientes (sin audio, suenan en silencio por ahora):
   inicio, final (mensajes de bienvenida/cierre), ganar.mp3, perder.mp3
