@@ -488,9 +488,13 @@ func _terminar_juego(gano: bool) -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	if gano:
 		DialogueManager.show_text("¡Clasificaste toda la basura! ¡Ganaste!", "good")
+		DialogueManager.reproducir_sfx_evento("ganar")
 	else:
 		# Frase de cierre (categoría "final").
 		DialogueManager.show_dialogue("final", "neutral")
+		# Sonido según el motivo de la derrota: sin vidas -> "perder";
+		# se acabó el tiempo -> "final".
+		DialogueManager.reproducir_sfx_evento("perder" if _vidas <= 0 else "final")
 	_mostrar_panel_resultado(gano)
 	get_tree().paused = true
 

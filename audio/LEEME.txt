@@ -1,0 +1,41 @@
+AUDIOS DEL JUEGO
+================
+Cada FRASE del juego tiene su propio audio. El texto que se muestra y el
+archivo que suena están emparejados en DialogueManager.gd -> var _frases
+(campo "t" = texto, campo "a" = nombre del archivo aquí).
+
+Aciertos (categoría "correcto"):
+  eso-mae-va-para-donde-tiene-que-ir.mp3
+  buen-brete-un-punto-mas-para-el-planeta.mp3
+  asi-se-hace-basura-en-su-chante.mp3
+  mae-que-nivel-esa-si-la-pego.mp3
+  pura-vida-reciclaje-bien-hecho.mp3
+  excelente-mae-la-naturaleza-se-lo-agradece.mp3
+  siga-asi-va-salvando-el-ambiente.mp3
+
+Errores (categoría "error"):
+  mae-que-bruto-esa-no-iba-ahi.mp3
+  no-sea-bestia-revise-bien.mp3
+  mae-que-vio-porque-el-color-no.mp3
+  jaja-que-banazo-acaba-de-pegar.mp3
+  hasta-el-basurero-esta-confundido.mp3
+  de-fijo-estaba-distraido.mp3
+  nombres-ponga-atencion-va-en-otro-recipiente.mp3
+  creo-que-te-falto-ver-la-pelicula-de-wall-e.mp3
+  creo-que-tendre-que-llamar-a-willy-pineda.mp3
+  estamos-igual-que-la-sele-no-logramos-clasificar.mp3
+
+Combo de 5 aciertos (categoría "combo5"):
+  carck-fiera-mastodonte-numero-uno.mp3
+
+Combo de 10 aciertos (categoría "combo10"):
+  bien-mae-se-merece-beca-10.mp3
+  que-saico-ya-casi-lo-contrata-la-muni.mp3
+
+Pendientes (sin audio, suenan en silencio por ahora):
+  inicio, final (mensajes de bienvenida/cierre), ganar.mp3, perder.mp3
+
+Notas:
+- Si falta un archivo, esa frase no suena (no rompe el juego).
+- Tras agregar/cambiar audios, abre Godot una vez para que los importe.
+- Al importar, deja el "loop" desactivado (son efectos, no música).

@@ -29,88 +29,62 @@ const COLOR_NEUTRAL := Color("8B5A2B")  # café madera
 
 # --- Frases por categoría ---------------------------------------------------
 # Cada clave es una categoría; el valor es la lista de frases posibles.
+# Cada categoría tiene una lista de frases. Cada frase es un diccionario con:
+#   "t" = texto que se muestra en el toast.
+#   "a" = nombre del archivo de audio en res://audio/ ("" = sin audio).
 var _frases := {
-	# Basura BIEN colocada.
+	# Basura BIEN colocada (acierto).
 	"correcto": [
-		"¡Eso mae! Va para donde tiene que ir.",
-		"¡Buen brete! Un punto más para el planeta.",
-		"¡Así se hace! Basura en su chante.",
-		"¡Qué nivel! Esa sí la pegó.",
-		"¡Pura vida! Reciclaje bien hecho.",
-		"¡Excelente, mae! La naturaleza se lo agradece.",
-		"¡De una! Esa quedó donde corresponde.",
-		"¡Tuanis! Menos contaminación, más conciencia.",
-		"¡Siga así! Va salvando el ambiente.",
-		"¡Buen ojo! Clasificación perfecta.",
+		{"t": "¡Eso mae! Va para donde tiene que ir.", "a": "eso-mae-va-para-donde-tiene-que-ir.mp3"},
+		{"t": "¡Buen brete! Un punto más para el planeta.", "a": "buen-brete-un-punto-mas-para-el-planeta.mp3"},
+		{"t": "¡Así se hace! Basura en su chante.", "a": "asi-se-hace-basura-en-su-chante.mp3"},
+		{"t": "¡Mae, qué nivel! Esa sí la pegó.", "a": "mae-que-nivel-esa-si-la-pego.mp3"},
+		{"t": "¡Pura vida! Reciclaje bien hecho.", "a": "pura-vida-reciclaje-bien-hecho.mp3"},
+		{"t": "¡Excelente, mae! La naturaleza se lo agradece.", "a": "excelente-mae-la-naturaleza-se-lo-agradece.mp3"},
+		{"t": "¡Siga así! Va salvando el ambiente.", "a": "siga-asi-va-salvando-el-ambiente.mp3"},
 	],
-	# Basura MAL colocada (genérico).
-	"incorrecto": [
-		"¡Mae, no sea caballo! Ese no era el basurero.",
-		"¡Ay no! Así no se recicla.",
-		"¡Qué torta! Revise bien antes de tirar.",
-		"¡Mae, póngale atención! Va en otro recipiente.",
-		"¡Uy! El planeta acaba de perder puntos.",
-		"¡No joda! Esa basura no va ahí.",
-		"¡Qué madre! Inténtelo otra vez.",
-		"¡Mae, se embarcó! Ese no era.",
-		"¡Así no promete! Busque el basurero correcto.",
-		"¡Fijo estaba distraído! Pruebe de nuevo.",
-	],
-	# Al empezar el juego.
-	"inicio": [
-		"¡Mae, aliste esas manos! El planeta ocupa ayuda.",
-		"¡Bienvenido! Demuestre que sabe reciclar como un campeón.",
-		"¡Vamos con todo! El ambiente está en sus manos.",
-		"¡Arrancamos! Clasifique rápido y con cuidado.",
-		"¡Póngase vivo! El tiempo corre.",
-		"¡Listo mae! A recoger ese reguero.",
-		"¡Que no se le vaya ninguna! Empieza la misión ecológica.",
-		"¡A darle! Cada basura cuenta.",
-		"¡Llegó la hora! Veamos cuánto sabe de reciclaje.",
-		"¡Ojo al tiempo! Entre más rápido, mejor puntaje.",
-	],
-	# Al terminar el juego.
-	"final": [
-		"¡Se acabó, mae! Hora de revisar esos puntos.",
-		"¡Fin del juego! Gracias por ayudar al planeta.",
-		"¡Buen brete! Cada basura bien puesta hace la diferencia.",
-		"¡Listo! El ambiente le da las gracias.",
-		"¡Se acabó el tiempo! ¿Logró salvar suficiente basura?",
-		"¡Misión cumplida! Ahora vea su resultado.",
-		"¡Qué nivel! Ojalá recicle así en la vida real.",
-		"¡Juego terminado! El planeta espera verlo de nuevo.",
-		"¡Hasta aquí llegamos! Recuerde: reciclar no es solo un juego.",
+	# Basura MAL colocada (error).
+	"error": [
+		{"t": "¡Mae, qué bruto! Esa no iba ahí.", "a": "mae-que-bruto-esa-no-iba-ahi.mp3"},
+		{"t": "¡No sea bestia! Revise bien.", "a": "no-sea-bestia-revise-bien.mp3"},
+		{"t": "¡Mae! ¿Qué vio? Porque el color no.", "a": "mae-que-vio-porque-el-color-no.mp3"},
+		{"t": "¡Jaja! Qué bañazo acaba de pegar.", "a": "jaja-que-banazo-acaba-de-pegar.mp3"},
+		{"t": "¡Hasta el basurero está confundido!", "a": "hasta-el-basurero-esta-confundido.mp3"},
+		{"t": "De fijo estaba distraído.", "a": "de-fijo-estaba-distraido.mp3"},
+		{"t": "¡Ponga atención! Va en otro recipiente.", "a": "nombres-ponga-atencion-va-en-otro-recipiente.mp3"},
+		{"t": "Creo que te faltó ver la película de Wall-E.", "a": "creo-que-te-falto-ver-la-pelicula-de-wall-e.mp3"},
+		{"t": "Creo que tendré que llamar a Willy Pineda.", "a": "creo-que-tendre-que-llamar-a-willy-pineda.mp3"},
+		{"t": "Estamos igual que la Sele: no logramos clasificar.", "a": "estamos-igual-que-la-sele-no-logramos-clasificar.mp3"},
 	],
 	# 5 aciertos seguidos.
 	"combo5": [
-		"¡Mae, está on fire!",
-		"¡Qué máquina para reciclar!",
-		"¡Así sí promete!",
+		{"t": "¡Crack! Fiera, mastodonte número uno.", "a": "carck-fiera-mastodonte-numero-uno.mp3"},
 	],
 	# 10 aciertos seguidos.
 	"combo10": [
-		"¡Ya casi lo contratan en la muni!",
-		"¡Reciclador profesional desbloqueado!",
-		"¡El planeta le está haciendo barra!",
+		{"t": "¡Bien, mae! Se merece beca 10.", "a": "bien-mae-se-merece-beca-10.mp3"},
+		{"t": "¡Qué saico! Ya casi lo contrata la muni.", "a": "que-saico-ya-casi-lo-contrata-la-muni.mp3"},
 	],
-	# 3 errores seguidos.
+	# 3 errores seguidos (sin audio propio por ahora).
 	"fallos3": [
-		"¡Mae, ¿anda dormido o qué?",
-		"¡Revise los colores, compa!",
-		"¡Así nos llenamos de basura, vea!",
+		{"t": "¡Mae, ¿anda dormido o qué?", "a": ""},
+		{"t": "¡Revise los colores, compa!", "a": ""},
+		{"t": "¡Así nos llenamos de basura, vea!", "a": ""},
 	],
-	# Botó en el basurero equivocado.
-	"error": [
-		"¡Mae, qué bruto! Esa no iba ahí.",
-		"¡No sea tan bestia! Revise bien.",
-		"¡Legalmente se la jugó y perdió!",
-		"¡Mae, ¿qué vio? Porque el color no.",
-		"¡Qué bañazo acaba de pegar!",
-		"¡Ni copiando la respuesta la pega así!",
-		"¡Mae, está mamando durísimo!",
-		"¡Con razón hacen falta más cursos de reciclaje!",
-		"¡Qué clase de invento fue ese!",
-		"¡Hasta el basurero está confundido!",
+	# Al empezar el juego (sin audio propio por ahora).
+	"inicio": [
+		{"t": "¡Mae, aliste esas manos! El planeta ocupa ayuda.", "a": ""},
+		{"t": "¡Bienvenido! Demuestre que sabe reciclar como un campeón.", "a": ""},
+		{"t": "¡Vamos con todo! El ambiente está en sus manos.", "a": ""},
+		{"t": "¡Arrancamos! Clasifique rápido y con cuidado.", "a": ""},
+		{"t": "¡Póngase vivo! El tiempo corre.", "a": ""},
+	],
+	# Al terminar el juego (sin audio propio por ahora).
+	"final": [
+		{"t": "¡Se acabó, mae! Hora de revisar esos puntos.", "a": ""},
+		{"t": "¡Fin del juego! Gracias por ayudar al planeta.", "a": ""},
+		{"t": "¡Se acabó el tiempo! ¿Logró salvar suficiente basura?", "a": ""},
+		{"t": "¡Misión cumplida! Ahora vea su resultado.", "a": ""},
 	],
 }
 
@@ -121,6 +95,21 @@ var _ultimo_indice := {}
 # Capa visual propia y contenedor donde se apilan los toasts.
 var _capa: CanvasLayer
 var _contenedor: VBoxContainer
+
+# --- Sonidos --------------------------------------------------------------
+# Carpeta donde viven los audios. Cada frase indica su archivo en "a".
+const AUDIO_DIR := "res://audio/"
+
+# Sonidos de desenlace (no son frases): los dispara main.gd con
+# reproducir_sfx_evento(). Si el archivo no existe, simplemente no suena.
+const SFX := {
+	"ganar":  "res://audio/ganar.mp3",
+	"perder": "res://audio/perder.mp3",
+	"final":  "res://audio/final.mp3",
+}
+
+# Reproductor de efectos (uno solo: cada nuevo sonido reemplaza al anterior).
+var _sfx: AudioStreamPlayer
 
 func _ready() -> void:
 	# Construimos la capa una sola vez. Al ser hija del autoload, persiste entre
@@ -146,15 +135,21 @@ func _ready() -> void:
 	_contenedor.mouse_filter = Control.MOUSE_FILTER_IGNORE  # no bloquea el juego
 	_capa.add_child(_contenedor)
 
+	# Reproductor de efectos de sonido.
+	_sfx = AudioStreamPlayer.new()
+	add_child(_sfx)
+
 # --- API pública ------------------------------------------------------------
 
 ## Muestra UNA frase aleatoria de la categoría indicada.
 ## tipo: "good" (verde), "bad" (rojo) o "neutral" (café).
 func show_dialogue(categoria: String, tipo: String = "neutral") -> void:
-	var texto := _frase_aleatoria(categoria)
-	if texto == "":
+	var frase := _frase_aleatoria(categoria)
+	if frase.is_empty():
 		return
-	_mostrar_toast(texto, _color_por_tipo(tipo))
+	_mostrar_toast(frase.get("t", ""), _color_por_tipo(tipo))
+	# Reproduce el audio de ESA frase concreta (si tiene uno asignado).
+	_reproducir_archivo(frase.get("a", ""))
 
 ## Muestra un texto literal (útil para mensajes puntuales que no son una
 ## categoría, p. ej. "Acércate a un basurero").
@@ -163,14 +158,46 @@ func show_text(texto: String, tipo: String = "neutral") -> void:
 		return
 	_mostrar_toast(texto, _color_por_tipo(tipo))
 
+## Reproduce el sonido de un evento por su clave (ver SFX), p. ej. "ganar",
+## "perder" o "final". Lo usa main.gd para los desenlaces de la partida.
+func reproducir_sfx_evento(clave: String) -> void:
+	_reproducir_evento(clave)
+
 # --- Interno ----------------------------------------------------------------
 
+# Reproduce el archivo de SFX[clave] (sonidos de desenlace) si existe.
+func _reproducir_evento(clave: String) -> void:
+	if clave == "":
+		return
+	_reproducir_ruta(SFX.get(clave, ""))
+
+# Reproduce un audio de frase por su nombre de archivo dentro de res://audio/.
+func _reproducir_archivo(archivo: String) -> void:
+	if archivo == "":
+		return
+	_reproducir_ruta(AUDIO_DIR + archivo)
+
+# Carga y reproduce la pista en 'ruta'. Si el archivo no existe (o falta), no
+# hace nada: así el juego funciona aunque todavía no tengas todos los audios.
+func _reproducir_ruta(ruta: String) -> void:
+	if ruta == "" or _sfx == null or not ResourceLoader.exists(ruta):
+		return
+	var stream = load(ruta)
+	if stream == null:
+		return
+	# Evita que un efecto quede en bucle si se importó con loop activado.
+	if stream.get("loop") != null:
+		stream.set("loop", false)
+	_sfx.stream = stream
+	_sfx.play()
+
 ## Elige una frase al azar de la categoría, distinta a la última mostrada.
-func _frase_aleatoria(categoria: String) -> String:
+## Devuelve el diccionario {t, a} o {} si la categoría no existe.
+func _frase_aleatoria(categoria: String) -> Dictionary:
 	var lista: Array = _frases.get(categoria, [])
 	if lista.is_empty():
 		push_warning("DialogueManager: categoría desconocida '%s'" % categoria)
-		return ""
+		return {}
 	if lista.size() == 1:
 		return lista[0]
 
