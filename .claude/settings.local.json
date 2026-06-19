@@ -34,7 +34,15 @@
       "PowerShell($godot = \"C:\\\\Users\\\\Jamel Sandí\\\\Desktop\\\\Godot_v4.6.2-stable_win64.exe\"; & $godot --path \"D:\\\\Ing\\\\I Ciclo 26\\\\Game UNA\\\\Juego-Godot-Reciclaje\" \"res://zz_shot.tscn\" --quit-after 900 2>&1 | Select-String -Pattern \"SCRIPT ERROR|Parse|ERROR|shot\" | Select-Object -First 15; \"EXIT=$LASTEXITCODE\")",
       "Bash(rm -f zz_shot.gd zz_shot.tscn zz_shot.gd.uid)",
       "Bash(rm -f \"C:/Users/Jamel Sandí/AppData/Roaming/Godot/app_userdata/HangarGame/shot_win.png\" \"C:/Users/Jamel Sandí/AppData/Roaming/Godot/app_userdata/HangarGame/shot_lose.png\")",
-      "PowerShell($godot = \"C:\\\\Users\\\\Jamel Sandí\\\\Desktop\\\\Godot_v4.6.2-stable_win64.exe\"; & $godot --path \"D:\\\\Ing\\\\I Ciclo 26\\\\Game UNA\\\\Juego-Godot-Reciclaje\" \"res://zz_shot.tscn\" --quit-after 900 2>&1 | Select-String -Pattern \"SCRIPT ERROR|Parse Error\" | Select-Object -First 10; \"EXIT=$LASTEXITCODE\")"
+      "PowerShell($godot = \"C:\\\\Users\\\\Jamel Sandí\\\\Desktop\\\\Godot_v4.6.2-stable_win64.exe\"; & $godot --path \"D:\\\\Ing\\\\I Ciclo 26\\\\Game UNA\\\\Juego-Godot-Reciclaje\" \"res://zz_shot.tscn\" --quit-after 900 2>&1 | Select-String -Pattern \"SCRIPT ERROR|Parse Error\" | Select-Object -First 10; \"EXIT=$LASTEXITCODE\")",
+      "Bash(command -v python)",
+      "Bash(command -v python3)",
+      "Bash(command -v godot)",
+      "Bash(python *)",
+      "Read(//c/Program Files/**)",
+      "Read(//c/Users/Usuario/AppData/Roaming/Godot/**)",
+      "Bash(rm -f debug_topdown.png debug_derecha_xpos.png debug_izquierda_xneg.png debug_fondo_zneg.png debug_entrada_zpos.png debug_interior_map.png debug_piso_map.png debug_topdown.png.import debug_*.png.import)",
+      "Bash(ls debug_*.png)"
     ]
   }
 }

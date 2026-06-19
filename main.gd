@@ -3,12 +3,36 @@ extends Node3D
 const FOREST_SCENE := preload("res://Meshy_AI_Floating_Forest_Islan_0520035441_texture.glb")
 const FLOOR_TOP_Y := 1.75
 const FOREST_SCALE := 1.0
-const FOREST_RING_DEPTH := 6         # anillos extra de islas por FUERA del hangar
+const FOREST_RING_DEPTH := 3         # anillos extra de islas por FUERA del hangar
+									 # (con niebla 3 alcanza; antes 6 = 326 islas y patrón visible)
 const FOREST_TILE_OVERLAP := 0.92    # <1 = solape leve para evitar huecos
-const FOREST_Y_OFFSET := -6.5        # afinación manual: positivo = sube las islas
+const FOREST_Y_OFFSET := -6.0        # afinación manual: + sube las islas, - las hunde
+									 # (más negativo = menos "flotante" y oculta más la base nubosa)
+# Solape de la primera fila de islas contra la pared del hangar.
+#   negativo = el verde se mete un poco BAJO el borde del hangar (sin hueco)
+#   0.0      = el verde arranca EXACTO en la pared
+#   positivo = deja un huequito entre la pared y el verde
+# Afiná este valor para que "el fin del hangar coincida con el inicio del verde".
+const FOREST_WALL_OVERLAP := 0.07
+
+# Empuje EXTRA por lado (se SUMA a FOREST_WALL_OVERLAP solo en ese lado), para
+# alejar el verde de un costado puntual sin mover los demás. Subí a ~0.15 el lado
+# que necesites. Orientación según el jugador entrando al hangar (mira al fondo):
+const FOREST_PUSH_IZQUIERDA := 0.0   # lado izquierdo  (eje -X, donde están los basureros)
+const FOREST_PUSH_DERECHA   := 0.0   # lado derecho    (eje +X)
+const FOREST_PUSH_FONDO     := -0.06 # lado del fondo  (eje -Z, al frente al entrar) — pegado a la abertura
+const FOREST_PUSH_ENTRADA   := -0.06 # lado de entrada (eje +Z, por donde se entra) — pegado a la abertura
 
 const TRASH_RADIO := 24.0            # radio de dispersión de la basura (amplio: hay que caminar)
 
+# --- Vehículos decorativos ----------------------------------------------------
+# 2 motos como props dentro del hangar, cerca de la entrada. Afinable a ojo:
+const MOTO1 := preload("res://moto1.glb")
+const MOTO2 := preload("res://moto2.glb")
+const MOTO_DECOR_DX := 9.0      # X de las motos respecto al centro del hangar
+const MOTO_DECOR_DENTRO := 16.0 # qué tan adentro desde la entrada (+Z)
+
+@onready var world_env: WorldEnvironment = $WorldEnvironment
 @onready var angar: Node3D = $Angar
 @onready var floor_body: StaticBody3D = $Floor
 @onready var floor_shape: CollisionShape3D = $Floor/CollisionShape3D
@@ -54,10 +78,12 @@ func _ready() -> void:
 
 	print("Floor (manual) global Y = ", floor_body.global_position.y)
 
+	_configurar_ambiente()
 	_spawn_forest(aabb)
 	_generate_hangar_collisions()
 	_spawn_invisible_walls(aabb)
 	_spawn_bins_and_caps(aabb)
+	_spawn_vehiculos_decor(aabb)
 	_conectar_contador_monedas()
 	_crear_contador_basura()
 	_crear_contador_vidas()
@@ -363,6 +389,41 @@ func _add_wall(parent: StaticBody3D, pos: Vector3, size: Vector3) -> void:
 	col.position = pos
 	parent.add_child(col)
 
+# Ajusta cielo y niebla para que el paisaje se vea natural: un cielo limpio en
+# degradado y una niebla de distancia que difumina las islas lejanas hacia el
+# horizonte. La niebla es el truco clave: oculta el patrón repetido del mosaico
+# de islas y hace desaparecer las masas de islas/nubes que asomaban "en el cielo",
+# dejando solo un horizonte suave y creíble.
+#
+# Perillas para afinar (todas a ojo, probando en el juego):
+#   FOG_DENSITY    -> qué tan rápido se difumina la distancia (más = más cerrado)
+#   FOG_SKY_AFFECT -> cuánta niebla toca el cielo (0 = cielo nítido, 1 = todo nublado)
+const FOG_DENSITY := 0.0012
+const FOG_SKY_AFFECT := 0.0
+
+func _configurar_ambiente() -> void:
+	var env: Environment = world_env.environment
+	if env == null:
+		return
+
+	# --- Cielo en degradado natural (azul arriba, neblinoso al horizonte) ---
+	if env.sky != null and env.sky.sky_material is ProceduralSkyMaterial:
+		var sky_mat: ProceduralSkyMaterial = env.sky.sky_material
+		sky_mat.sky_top_color = Color(0.36, 0.58, 0.86)      # azul cielo
+		sky_mat.sky_horizon_color = Color(0.80, 0.86, 0.90)  # neblina clara al ras
+		sky_mat.sky_curve = 0.12
+		sky_mat.ground_horizon_color = Color(0.80, 0.86, 0.90)
+		sky_mat.ground_bottom_color = Color(0.62, 0.70, 0.66)
+
+	# --- Niebla de distancia (oculta islas lejanas y el patrón del mosaico) ---
+	env.fog_enabled = true
+	env.fog_mode = Environment.FOG_MODE_EXPONENTIAL
+	env.fog_light_color = Color(0.80, 0.86, 0.90)  # mismo tono que el horizonte
+	env.fog_density = FOG_DENSITY
+	env.fog_sky_affect = FOG_SKY_AFFECT            # 0 = cielo totalmente limpio
+	env.fog_aerial_perspective = 0.0
+	print("[Ambiente] cielo y niebla configurados (density=", FOG_DENSITY, ")")
+
 func _spawn_forest(angar_aabb: AABB) -> void:
 	# Sonda para medir el AABB real de una isla a la escala que vamos a usar.
 	var probe: Node3D = FOREST_SCENE.instantiate()
@@ -394,27 +455,33 @@ func _spawn_forest(angar_aabb: AABB) -> void:
 	# Colocar el origen del GLB al nivel del piso (la mayoría de modelos de
 	# islas tienen el pivote en su superficie). Si no, ajustar FOREST_Y_OFFSET.
 	var y: float = FLOOR_TOP_Y + FOREST_Y_OFFSET
-	# Pequeño solape de la primera fila contra la pared del hangar (negativo = se mete
-	# un poco hacia adentro para no dejar hueco, positivo = se aleja).
-	var wall_overlap: float = -0.05
+	# Solape de la primera fila contra la pared del hangar (ver FOREST_WALL_OVERLAP arriba).
+	var wall_overlap: float = FOREST_WALL_OVERLAP
+
+	# Solape por lado = solape base + empuje extra de ese lado. Así se puede alejar
+	# un costado puntual (p.ej. el de los carros rojos) sin tocar los otros tres.
+	var ov_derecha: float = wall_overlap + FOREST_PUSH_DERECHA     # +X
+	var ov_izquierda: float = wall_overlap + FOREST_PUSH_IZQUIERDA # -X
+	var ov_entrada: float = wall_overlap + FOREST_PUSH_ENTRADA     # +Z
+	var ov_fondo: float = wall_overlap + FOREST_PUSH_FONDO         # -Z
 
 	# Posiciones a lo largo de X: columnas externas (a izquierda y derecha del hangar)
 	# + columnas internas (cruzando el ancho del hangar). La primera externa siempre
-	# arranca pegada a la pared, así los 4 lados son simétricos.
+	# arranca pegada a la pared.
 	var xs: Array[float] = []
 	for k in range(FOREST_RING_DEPTH + 1):
-		var off: float = hangar_half_x + tile_size_x * (0.5 + float(k)) + wall_overlap * tile_size_x
-		xs.append(center.x + off)
-		xs.append(center.x - off)
+		var base_off: float = hangar_half_x + tile_size_x * (0.5 + float(k))
+		xs.append(center.x + base_off + ov_derecha * tile_size_x)    # lado derecho (+X)
+		xs.append(center.x - base_off - ov_izquierda * tile_size_x)  # lado izquierdo (-X)
 	var inner_count_x: int = int(ceil((2.0 * hangar_half_x) / tile_size_x))
 	for j in range(inner_count_x):
 		xs.append(center.x - hangar_half_x + tile_size_x * (0.5 + float(j)))
 
 	var zs: Array[float] = []
 	for k in range(FOREST_RING_DEPTH + 1):
-		var off: float = hangar_half_z + tile_size_z * (0.5 + float(k)) + wall_overlap * tile_size_z
-		zs.append(center.z + off)
-		zs.append(center.z - off)
+		var base_off: float = hangar_half_z + tile_size_z * (0.5 + float(k))
+		zs.append(center.z + base_off + ov_entrada * tile_size_z)    # lado entrada (+Z)
+		zs.append(center.z - base_off - ov_fondo * tile_size_z)      # lado fondo (-Z)
 	var inner_count_z: int = int(ceil((2.0 * hangar_half_z) / tile_size_z))
 	for j in range(inner_count_z):
 		zs.append(center.z - hangar_half_z + tile_size_z * (0.5 + float(j)))
@@ -437,6 +504,28 @@ func _spawn_forest(angar_aabb: AABB) -> void:
 			spawned += 1
 
 	print("[Forest] tile=(", tile_size_x, ",", tile_size_z, ") top_rel=", island_top_relative, " xs=", xs.size(), " zs=", zs.size(), " islas=", spawned, " y=", y)
+
+# Coloca los vehículos decorativos: un auto rojo (recortado de la colección)
+# afuera, frente al fondo del hangar, y las 2 motos adentro cerca de la entrada.
+func _spawn_vehiculos_decor(angar_aabb: AABB) -> void:
+	var center := Vector3(
+		angar_aabb.position.x + angar_aabb.size.x * 0.5,
+		FLOOR_TOP_Y,
+		angar_aabb.position.z + angar_aabb.size.z * 0.5
+	)
+	var half_z: float = angar_aabb.size.z * 0.5
+	var root := Node3D.new()
+	root.name = "VehiculosDecor"
+	add_child(root)
+
+	# --- Motos adentro, cerca de la entrada (+Z), a un costado ---
+	var z_motos: float = center.z + half_z - MOTO_DECOR_DENTRO
+	var m1: Node3D = MOTO1.instantiate()
+	root.add_child(m1)
+	m1.position = Vector3(center.x + MOTO_DECOR_DX, FLOOR_TOP_Y, z_motos)
+	var m2: Node3D = MOTO2.instantiate()
+	root.add_child(m2)
+	m2.position = Vector3(center.x + MOTO_DECOR_DX + 3.0, FLOOR_TOP_Y, z_motos)
 
 func _world_aabb(node: Node) -> AABB:
 	var combined := AABB()
