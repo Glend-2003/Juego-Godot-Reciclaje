@@ -41,8 +41,20 @@ Racha mala: 3 errores seguidos (categoría "fallos3"):
   mae-legalmente-esta-haciendo-un-experimento-social.mp3
   mae-ni-al-propio-sale-tan-mal.mp3
 
+Inicio del juego (categoría "inicio"):
+  inicioJuego.mp3
+
+Aviso de tiempo:
+  unminuto.mp3        -> suena cuando queda 1 minuto
+
+Derrota con pocos puntos (se elige una al azar):
+  bad.mp3
+  bad2.mp3
+  bad3.mp3
+
 Pendientes (sin audio, suenan en silencio por ahora):
-  inicio, final (mensajes de bienvenida/cierre), ganar.mp3, perder.mp3
+  final (cierre por tiempo con buen puntaje), ganar.mp3, perder.mp3
+  (perder.mp3 = derrota por vidas con buen puntaje)
 
 Notas:
 - Si falta un archivo, esa frase no suena (no rompe el juego).

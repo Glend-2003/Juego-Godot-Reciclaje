@@ -497,15 +497,38 @@ func _terminar_juego(gano: bool) -> void:
 	else:
 		# Frase de cierre (categoría "final").
 		DialogueManager.show_dialogue("final", "neutral")
-		# Sonido según el motivo de la derrota: sin vidas -> "perder";
-		# se acabó el tiempo -> "final".
-		DialogueManager.reproducir_sfx_evento("perder" if _vidas <= 0 else "final")
+		if _puntos_actuales() <= _umbral_pocos_puntos():
+			# Derrota con muy pocos puntos: suena un "bad" al azar.
+			DialogueManager.reproducir_sfx_evento(["bad", "bad2", "bad3"].pick_random())
+		else:
+			# Derrota "normal": sin vidas -> "perder"; por tiempo -> "final".
+			DialogueManager.reproducir_sfx_evento("perder" if _vidas <= 0 else "final")
 	_mostrar_panel_resultado(gano)
 	get_tree().paused = true
 
-# Panel central con el resultado (victoria/derrota), el resumen y los botones
-# Reintentar / Menú. Vive en su propia CanvasLayer en modo ALWAYS para seguir
-# respondiendo aunque el árbol esté pausado.
+# Puntos actuales del jugador (0 si no hay PickupSystem).
+func _puntos_actuales() -> int:
+	var jugador := get_node_or_null("Player")
+	if jugador and jugador.has_method("get_pickup_system"):
+		var ps = jugador.get_pickup_system()
+		if ps:
+			return ps.get_monedas()
+	return 0
+
+# Umbral de "pocos puntos" para el sonido de derrota floja: un cuarto del total
+# de basura (con 20 basuras => 5 puntos o menos cuenta como pocos).
+func _umbral_pocos_puntos() -> int:
+	return int(_total_basura * 0.25)
+
+# Rutas de las imágenes del resultado y del botón de reintentar.
+const IMG_WIN := "res://Pantalla de win.png"
+const IMG_LOSE := "res://Pantalla de perder.png"
+const BTN_RETRY_NORMAL := "res://boton de voolver a intentar sin presionar.png"
+const BTN_RETRY_PRESSED := "res://boton de voolver a intentar presionado.png"
+
+# Panel de resultado: imagen de ganar/perder a pantalla completa, un resumen
+# compacto y los botones Reintentar / Menú. Vive en su propia CanvasLayer en
+# modo ALWAYS para seguir respondiendo aunque el árbol esté pausado.
 func _mostrar_panel_resultado(gano: bool) -> void:
 	var capa := CanvasLayer.new()
 	capa.name = "ResultadoLayer"
@@ -513,81 +536,104 @@ func _mostrar_panel_resultado(gano: bool) -> void:
 	capa.process_mode = Node.PROCESS_MODE_ALWAYS
 	add_child(capa)
 
-	# Fondo oscuro que atenúa el juego de atrás.
+	# Fondo oscuro que tapa el juego de atrás (y rellena las bandas de la imagen).
 	var fondo := ColorRect.new()
-	fondo.color = Color(0, 0, 0, 0.55)
+	fondo.color = Color(0, 0, 0, 0.85)
 	fondo.set_anchors_preset(Control.PRESET_FULL_RECT)
 	capa.add_child(fondo)
 
-	# Tarjeta central estilo madera (en armonía con el resto del HUD).
-	var tarjeta := PanelContainer.new()
-	tarjeta.anchor_left = 0.5
-	tarjeta.anchor_right = 0.5
-	tarjeta.anchor_top = 0.5
-	tarjeta.anchor_bottom = 0.5
-	tarjeta.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	tarjeta.grow_vertical = Control.GROW_DIRECTION_BOTH
-	var estilo := StyleBoxFlat.new()
-	estilo.bg_color = Color(0.16, 0.11, 0.07, 0.96)
-	estilo.set_corner_radius_all(16)
-	estilo.set_content_margin_all(28)
-	estilo.set_border_width_all(3)
-	estilo.border_color = Color("7CB342") if gano else Color("C0392B")
-	estilo.shadow_color = Color(0, 0, 0, 0.5)
-	estilo.shadow_size = 8
-	tarjeta.add_theme_stylebox_override("panel", estilo)
-	capa.add_child(tarjeta)
-
-	var caja := VBoxContainer.new()
-	caja.add_theme_constant_override("separation", 14)
-	caja.alignment = BoxContainer.ALIGNMENT_CENTER
-	tarjeta.add_child(caja)
-
-	var titulo := Label.new()
-	if gano:
-		titulo.text = "¡GANASTE!"
-	elif _vidas <= 0:
-		titulo.text = "¡TE QUEDASTE SIN VIDAS!"
+	# Imagen de ganar/perder a pantalla completa, centrada y sin deformar.
+	var ruta_img := IMG_WIN if gano else IMG_LOSE
+	if ResourceLoader.exists(ruta_img):
+		var img := TextureRect.new()
+		img.texture = load(ruta_img)
+		img.set_anchors_preset(Control.PRESET_FULL_RECT)
+		img.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		img.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		img.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		capa.add_child(img)
 	else:
-		titulo.text = "¡SE ACABÓ EL TIEMPO!"
-	titulo.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	titulo.add_theme_font_size_override("font_size", 40)
-	titulo.add_theme_color_override("font_color", Color("7CB342") if gano else Color("E74C3C"))
-	titulo.add_theme_color_override("font_outline_color", Color(0, 0, 0))
-	titulo.add_theme_constant_override("outline_size", 6)
-	caja.add_child(titulo)
+		# Respaldo si la imagen todavía no está importada: título de texto.
+		var titulo := Label.new()
+		if gano:
+			titulo.text = "¡GANASTE!"
+		elif _vidas <= 0:
+			titulo.text = "¡TE QUEDASTE SIN VIDAS!"
+		else:
+			titulo.text = "¡SE ACABÓ EL TIEMPO!"
+		titulo.set_anchors_preset(Control.PRESET_CENTER)
+		titulo.add_theme_font_size_override("font_size", 48)
+		titulo.add_theme_color_override("font_color", Color("7CB342") if gano else Color("E74C3C"))
+		titulo.add_theme_color_override("font_outline_color", Color(0, 0, 0))
+		titulo.add_theme_constant_override("outline_size", 6)
+		capa.add_child(titulo)
 
-	var monedas: int = 0
-	var jugador := get_node_or_null("Player")
-	if jugador and jugador.has_method("get_pickup_system"):
-		var ps = jugador.get_pickup_system()
-		if ps:
-			monedas = ps.get_monedas()
+	# Columna inferior-centro: resumen + botones.
+	var caja := VBoxContainer.new()
+	caja.alignment = BoxContainer.ALIGNMENT_CENTER
+	caja.add_theme_constant_override("separation", 16)
+	caja.anchor_left = 0.5
+	caja.anchor_right = 0.5
+	caja.anchor_top = 1.0
+	caja.anchor_bottom = 1.0
+	caja.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	caja.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	caja.offset_bottom = -40
+	capa.add_child(caja)
+
+	# Chip translúcido con el resumen (para que se lea sobre la imagen).
+	var chip := PanelContainer.new()
+	chip.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	var estilo := StyleBoxFlat.new()
+	estilo.bg_color = Color(0, 0, 0, 0.55)
+	estilo.set_corner_radius_all(12)
+	estilo.set_content_margin_all(10)
+	estilo.content_margin_left = 18
+	estilo.content_margin_right = 18
+	chip.add_theme_stylebox_override("panel", estilo)
+	caja.add_child(chip)
 
 	var t: int = max(tiempo, 0)
 	var resumen := Label.new()
 	resumen.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	resumen.add_theme_font_size_override("font_size", 22)
+	resumen.add_theme_font_size_override("font_size", 20)
 	resumen.add_theme_color_override("font_color", Color(1, 1, 1))
 	resumen.add_theme_color_override("font_outline_color", Color(0, 0, 0))
 	resumen.add_theme_constant_override("outline_size", 4)
-	resumen.text = "Clasificadas: %d / %d\nPuntos: %d\nVidas: %d / %d\nTiempo restante: %02d:%02d" % [
-		_clasificadas_ok, _total_basura, monedas, max(_vidas, 0), VIDAS_MAX, t / 60, t % 60
+	resumen.text = "Clasificadas: %d / %d    Puntos: %d    Vidas: %d / %d    Tiempo: %02d:%02d" % [
+		_clasificadas_ok, _total_basura, _puntos_actuales(), max(_vidas, 0), VIDAS_MAX, t / 60, t % 60
 	]
-	caja.add_child(resumen)
+	chip.add_child(resumen)
 
+	# Botones (centrados).
 	var fila := HBoxContainer.new()
-	fila.add_theme_constant_override("separation", 16)
+	fila.add_theme_constant_override("separation", 24)
 	fila.alignment = BoxContainer.ALIGNMENT_CENTER
 	caja.add_child(fila)
 
-	var btn_retry := _crear_boton_resultado("Reintentar")
-	btn_retry.pressed.connect(_on_reintentar)
-	fila.add_child(btn_retry)
+	fila.add_child(_crear_boton_reintentar())
 
 	var btn_menu := _crear_boton_resultado("Menú")
 	btn_menu.pressed.connect(_on_volver_menu)
 	fila.add_child(btn_menu)
+
+# Botón "Reintentar" con sus texturas (normal/presionado). Si las imágenes aún
+# no están, cae a un botón de texto para no quedarse sin opción de reintentar.
+func _crear_boton_reintentar() -> Control:
+	if ResourceLoader.exists(BTN_RETRY_NORMAL):
+		var b := TextureButton.new()
+		b.texture_normal = load(BTN_RETRY_NORMAL)
+		if ResourceLoader.exists(BTN_RETRY_PRESSED):
+			b.texture_pressed = load(BTN_RETRY_PRESSED)
+			b.texture_hover = load(BTN_RETRY_PRESSED)
+		b.ignore_texture_size = true
+		b.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
+		b.custom_minimum_size = Vector2(260, 84)
+		b.pressed.connect(_on_reintentar)
+		return b
+	var tb := _crear_boton_resultado("Reintentar")
+	tb.pressed.connect(_on_reintentar)
+	return tb
 
 func _crear_boton_resultado(texto: String) -> Button:
 	var b := Button.new()

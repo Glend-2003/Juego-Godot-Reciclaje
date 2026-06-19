@@ -111,6 +111,10 @@ const SFX := {
 	"perder":   "res://audio/perder.mp3",
 	"final":    "res://audio/final.mp3",
 	"unminuto": "res://audio/unminuto.mp3",
+	# Derrota con pocos puntos (se elige una al azar).
+	"bad":      "res://audio/bad.mp3",
+	"bad2":     "res://audio/bad2.mp3",
+	"bad3":     "res://audio/bad3.mp3",
 }
 
 # Reproductor de efectos (uno solo: cada nuevo sonido reemplaza al anterior).
