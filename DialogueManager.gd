@@ -104,6 +104,17 @@ var _contenedor: VBoxContainer
 # Carpeta donde viven los audios. Cada frase indica su archivo en "a".
 const AUDIO_DIR := "res://audio/"
 
+# Música ambiental (suena en bucle durante toda la partida) y jingles de
+# desenlace por acierto/derrota. Van en reproductores propios para no cortar
+# las frases de voz ni cortarse entre sí.
+const MUSICA_AMBIENTE := "res://audio/Ambiente.mp3"
+const SFX_WIN := "res://audio/Win.mp3"
+const SFX_LOST := "res://audio/Lost.mp3"
+
+# Volumen de la música de fondo: ni muy alta ni muy baja, para que se escuche
+# por debajo de las voces y los efectos.
+const MUSICA_VOLUMEN_DB := -14.0
+
 # Sonidos de desenlace (no son frases): los dispara main.gd con
 # reproducir_sfx_evento(). Si el archivo no existe, simplemente no suena.
 const SFX := {
@@ -119,6 +130,11 @@ const SFX := {
 
 # Reproductor de efectos (uno solo: cada nuevo sonido reemplaza al anterior).
 var _sfx: AudioStreamPlayer
+# Reproductor de jingles de acierto/derrota: aparte del de voces para que el
+# "Win" pueda sonar junto con la frase de "¡Eso mae!".
+var _jingle: AudioStreamPlayer
+# Reproductor exclusivo de la música ambiental en bucle.
+var _musica: AudioStreamPlayer
 
 func _ready() -> void:
 	# Construimos la capa una sola vez. Al ser hija del autoload, persiste entre
@@ -144,9 +160,18 @@ func _ready() -> void:
 	_contenedor.mouse_filter = Control.MOUSE_FILTER_IGNORE  # no bloquea el juego
 	_capa.add_child(_contenedor)
 
-	# Reproductor de efectos de sonido.
+	# Reproductor de efectos de sonido (voces de las frases).
 	_sfx = AudioStreamPlayer.new()
 	add_child(_sfx)
+
+	# Reproductor de jingles de acierto/derrota (Win/Lost).
+	_jingle = AudioStreamPlayer.new()
+	add_child(_jingle)
+
+	# Reproductor de la música ambiental en bucle.
+	_musica = AudioStreamPlayer.new()
+	_musica.volume_db = MUSICA_VOLUMEN_DB
+	add_child(_musica)
 
 # --- API pública ------------------------------------------------------------
 
@@ -172,6 +197,33 @@ func show_text(texto: String, tipo: String = "neutral") -> void:
 func reproducir_sfx_evento(clave: String) -> void:
 	_reproducir_evento(clave)
 
+## Arranca la música ambiental en bucle. La llama main.gd al iniciar la partida.
+## Si ya está sonando, no hace nada (evita reiniciarla).
+func iniciar_musica_ambiente() -> void:
+	if _musica == null or _musica.playing or not ResourceLoader.exists(MUSICA_AMBIENTE):
+		return
+	var stream = load(MUSICA_AMBIENTE)
+	if stream == null:
+		return
+	# Forzamos el bucle aunque el mp3 se haya importado con loop=false.
+	if stream.get("loop") != null:
+		stream.set("loop", true)
+	_musica.stream = stream
+	_musica.play()
+
+## Detiene la música ambiental (al terminar la partida).
+func detener_musica_ambiente() -> void:
+	if _musica:
+		_musica.stop()
+
+## Jingle corto de acierto (cada vez que se clasifica bien una basura).
+func reproducir_win() -> void:
+	_reproducir_en(_jingle, SFX_WIN)
+
+## Jingle de derrota (al perder la partida).
+func reproducir_lost() -> void:
+	_reproducir_en(_jingle, SFX_LOST)
+
 # --- Interno ----------------------------------------------------------------
 
 # Reproduce el archivo de SFX[clave] (sonidos de desenlace) si existe.
@@ -186,10 +238,15 @@ func _reproducir_archivo(archivo: String) -> void:
 		return
 	_reproducir_ruta(AUDIO_DIR + archivo)
 
-# Carga y reproduce la pista en 'ruta'. Si el archivo no existe (o falta), no
-# hace nada: así el juego funciona aunque todavía no tengas todos los audios.
+# Carga y reproduce la pista en 'ruta' en el reproductor de voces.
 func _reproducir_ruta(ruta: String) -> void:
-	if ruta == "" or _sfx == null or not ResourceLoader.exists(ruta):
+	_reproducir_en(_sfx, ruta)
+
+# Carga y reproduce la pista en 'ruta' en el reproductor indicado. Si el archivo
+# no existe (o falta), no hace nada: así el juego funciona aunque todavía no
+# tengas todos los audios.
+func _reproducir_en(player: AudioStreamPlayer, ruta: String) -> void:
+	if ruta == "" or player == null or not ResourceLoader.exists(ruta):
 		return
 	var stream = load(ruta)
 	if stream == null:
@@ -197,8 +254,8 @@ func _reproducir_ruta(ruta: String) -> void:
 	# Evita que un efecto quede en bucle si se importó con loop activado.
 	if stream.get("loop") != null:
 		stream.set("loop", false)
-	_sfx.stream = stream
-	_sfx.play()
+	player.stream = stream
+	player.play()
 
 ## Elige una frase al azar de la categoría, distinta a la última mostrada.
 ## Devuelve el diccionario {t, a} o {} si la categoría no existe.

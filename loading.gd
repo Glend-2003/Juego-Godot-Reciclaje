@@ -49,11 +49,13 @@ func _construir_ui() -> void:
 	_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_capa.add_child(_overlay)
 
-	# Fondo: la ilustración a pantalla completa (cubre sin deformar).
+	# Ilustración de carga: se redimensiona hasta llenar TODA la pantalla. Se ve
+	# completa (sin recortes) y ocupa todo el espacio (STRETCH_SCALE estira la
+	# imagen al tamaño de la pantalla).
 	var fondo := TextureRect.new()
 	fondo.set_anchors_preset(Control.PRESET_FULL_RECT)
 	fondo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	fondo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	fondo.stretch_mode = TextureRect.STRETCH_SCALE
 	fondo.texture = load(IMAGEN_CARGA)
 	fondo.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_overlay.add_child(fondo)
@@ -66,7 +68,8 @@ func _construir_ui() -> void:
 	tarjeta.anchor_bottom = 1.0
 	tarjeta.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	tarjeta.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	tarjeta.offset_bottom = -34
+	# Subido respecto al borde para no tapar la frase del fondo de la imagen.
+	tarjeta.offset_bottom = -80
 	tarjeta.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 	var estilo := StyleBoxFlat.new()

@@ -156,13 +156,26 @@ func _construir_hud() -> void:
 	_hud_soporte = Node3D.new()
 	_hud_viewport.add_child(_hud_soporte)
 
-	# Hint contextual: dice "F: Recoger | G: Cambiar/Depositar".
+	# Hint contextual ("F: Recoger", "G: Depositar en ..."): solo letra pequeña
+	# en blanco, anclada abajo-centro (por encima del contador de basura). Sin
+	# recuadro de fondo. Se oculta cuando no hay texto.
 	_hud_hint = Label.new()
 	_hud_hint.text = ""
-	_hud_hint.position = Vector2(28, 28)
+	_hud_hint.anchor_left = 0.0
+	_hud_hint.anchor_right = 1.0
+	_hud_hint.anchor_top = 1.0
+	_hud_hint.anchor_bottom = 1.0
+	_hud_hint.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	_hud_hint.offset_top = -100
+	_hud_hint.offset_bottom = -74
+	_hud_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_hud_hint.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_hud_hint.add_theme_font_size_override("font_size", 14)
 	_hud_hint.add_theme_color_override("font_color", Color(1, 1, 1))
 	_hud_hint.add_theme_color_override("font_outline_color", Color(0, 0, 0))
-	_hud_hint.add_theme_constant_override("outline_size", 6)
+	_hud_hint.add_theme_constant_override("outline_size", 2)
+	_hud_hint.visible = false
+	_hud_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	capa.add_child(_hud_hint)
 
 	# Botones táctiles SOLO en móvil.
@@ -235,6 +248,9 @@ func _actualizar_hint() -> void:
 		_hud_hint.text = "F: Recoger"
 	else:
 		_hud_hint.text = ""
+
+	# El texto solo se ve cuando hay algo que decir.
+	_hud_hint.visible = _hud_hint.text != ""
 
 	if _btn_pickup:
 		_btn_pickup.visible = (not _cargando()) and (not _cercanos.is_empty())

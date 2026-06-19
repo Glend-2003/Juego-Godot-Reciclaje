@@ -72,6 +72,9 @@ func _ready() -> void:
 	# de carga y se revele el juego ya listo.
 	mundo_listo.emit()
 
+	# Música ambiental en bucle durante toda la partida.
+	DialogueManager.iniciar_musica_ambiente()
+
 	# Diálogo de bienvenida (frase aleatoria de la categoría "inicio").
 	DialogueManager.show_dialogue("inicio", "neutral")
 
@@ -192,6 +195,8 @@ func _on_basura_clasificada(correcta: bool) -> void:
 		return
 	if correcta:
 		_clasificadas_ok += 1
+		# Jingle de acierto en cada basura bien clasificada.
+		DialogueManager.reproducir_win()
 		if _total_basura > 0 and _clasificadas_ok >= _total_basura:
 			_terminar_juego(true)
 	else:
@@ -456,7 +461,8 @@ func _all_descendants(node: Node) -> Array:
 	return out
 
 
-var tiempo := 210
+const TIEMPO_INICIAL := 210
+var tiempo := TIEMPO_INICIAL
 
 
 func _on_timer_timeout() -> void:
@@ -488,6 +494,8 @@ func _terminar_juego(gano: bool) -> void:
 		return
 	_juego_terminado = true
 	timer.stop()
+	# Termina la partida: se corta la música ambiental.
+	DialogueManager.detener_musica_ambiente()
 	# El jugador captura el mouse para la cámara; lo liberamos para que el cursor
 	# vuelva a verse y se puedan tocar los botones del panel de resultado.
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
@@ -495,14 +503,10 @@ func _terminar_juego(gano: bool) -> void:
 		DialogueManager.show_text("¡Clasificaste toda la basura! ¡Ganaste!", "good")
 		DialogueManager.reproducir_sfx_evento("ganar")
 	else:
+		# Jingle de derrota al perder (sin vidas o por tiempo).
+		DialogueManager.reproducir_lost()
 		# Frase de cierre (categoría "final").
 		DialogueManager.show_dialogue("final", "neutral")
-		if _puntos_actuales() <= _umbral_pocos_puntos():
-			# Derrota con muy pocos puntos: suena un "bad" al azar.
-			DialogueManager.reproducir_sfx_evento(["bad", "bad2", "bad3"].pick_random())
-		else:
-			# Derrota "normal": sin vidas -> "perder"; por tiempo -> "final".
-			DialogueManager.reproducir_sfx_evento("perder" if _vidas <= 0 else "final")
 	_mostrar_panel_resultado(gano)
 	get_tree().paused = true
 
@@ -520,11 +524,13 @@ func _puntos_actuales() -> int:
 func _umbral_pocos_puntos() -> int:
 	return int(_total_basura * 0.25)
 
-# Rutas de las imágenes del resultado y del botón de reintentar.
+# Rutas de las imágenes del resultado y de los botones.
 const IMG_WIN := "res://Pantalla de win.png"
 const IMG_LOSE := "res://Pantalla de perder.png"
 const BTN_RETRY_NORMAL := "res://boton de voolver a intentar sin presionar.png"
 const BTN_RETRY_PRESSED := "res://boton de voolver a intentar presionado.png"
+const BTN_HOME_NORMAL := "res://BotonSinPresionarHome.png"
+const BTN_HOME_PRESSED := "res://BotonPresionadoHome.png"
 
 # Panel de resultado: imagen de ganar/perder a pantalla completa, un resumen
 # compacto y los botones Reintentar / Menú. Vive en su propia CanvasLayer en
@@ -542,14 +548,15 @@ func _mostrar_panel_resultado(gano: bool) -> void:
 	fondo.set_anchors_preset(Control.PRESET_FULL_RECT)
 	capa.add_child(fondo)
 
-	# Imagen de ganar/perder a pantalla completa, centrada y sin deformar.
+	# Imagen de ganar/perder redimensionada para LLENAR toda la pantalla (se ve
+	# completa y ocupa todo el espacio, sin recortes ni bandas).
 	var ruta_img := IMG_WIN if gano else IMG_LOSE
 	if ResourceLoader.exists(ruta_img):
 		var img := TextureRect.new()
 		img.texture = load(ruta_img)
 		img.set_anchors_preset(Control.PRESET_FULL_RECT)
 		img.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		img.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		img.stretch_mode = TextureRect.STRETCH_SCALE
 		img.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		capa.add_child(img)
 	else:
@@ -568,54 +575,130 @@ func _mostrar_panel_resultado(gano: bool) -> void:
 		titulo.add_theme_constant_override("outline_size", 6)
 		capa.add_child(titulo)
 
-	# Columna inferior-centro: resumen + botones.
-	var caja := VBoxContainer.new()
-	caja.alignment = BoxContainer.ALIGNMENT_CENTER
-	caja.add_theme_constant_override("separation", 16)
-	caja.anchor_left = 0.5
-	caja.anchor_right = 0.5
-	caja.anchor_top = 1.0
-	caja.anchor_bottom = 1.0
-	caja.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	caja.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	caja.offset_bottom = -40
-	capa.add_child(caja)
+	# Tarjeta destacada con las estadísticas, anclada abajo pero corrida un poco
+	# a la derecha (independiente de los botones).
+	var tarjeta := _construir_tarjeta_stats(gano)
+	tarjeta.anchor_left = 0.5
+	tarjeta.anchor_right = 0.5
+	tarjeta.anchor_top = 1.0
+	tarjeta.anchor_bottom = 1.0
+	tarjeta.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	tarjeta.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	tarjeta.offset_left = 120        # corrida a la derecha
+	tarjeta.offset_right = 120
+	tarjeta.offset_bottom = -170     # por encima de los botones
+	capa.add_child(tarjeta)
 
-	# Chip translúcido con el resumen (para que se lea sobre la imagen).
-	var chip := PanelContainer.new()
-	chip.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	var estilo := StyleBoxFlat.new()
-	estilo.bg_color = Color(0, 0, 0, 0.55)
-	estilo.set_corner_radius_all(12)
-	estilo.set_content_margin_all(10)
-	estilo.content_margin_left = 18
-	estilo.content_margin_right = 18
-	chip.add_theme_stylebox_override("panel", estilo)
-	caja.add_child(chip)
-
-	var t: int = max(tiempo, 0)
-	var resumen := Label.new()
-	resumen.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	resumen.add_theme_font_size_override("font_size", 20)
-	resumen.add_theme_color_override("font_color", Color(1, 1, 1))
-	resumen.add_theme_color_override("font_outline_color", Color(0, 0, 0))
-	resumen.add_theme_constant_override("outline_size", 4)
-	resumen.text = "Clasificadas: %d / %d    Puntos: %d    Vidas: %d / %d    Tiempo: %02d:%02d" % [
-		_clasificadas_ok, _total_basura, _puntos_actuales(), max(_vidas, 0), VIDAS_MAX, t / 60, t % 60
-	]
-	chip.add_child(resumen)
-
-	# Botones (centrados).
+	# Botones centrados abajo: Reintentar (acción principal) + Home (volver al menú).
 	var fila := HBoxContainer.new()
-	fila.add_theme_constant_override("separation", 24)
+	fila.add_theme_constant_override("separation", 28)
 	fila.alignment = BoxContainer.ALIGNMENT_CENTER
-	caja.add_child(fila)
+	fila.anchor_left = 0.5
+	fila.anchor_right = 0.5
+	fila.anchor_top = 1.0
+	fila.anchor_bottom = 1.0
+	fila.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	fila.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	fila.offset_bottom = -45
+	capa.add_child(fila)
 
 	fila.add_child(_crear_boton_reintentar())
+	fila.add_child(_crear_boton_home())
 
-	var btn_menu := _crear_boton_resultado("Menú")
-	btn_menu.pressed.connect(_on_volver_menu)
-	fila.add_child(btn_menu)
+# Construye la tarjeta de estadísticas finales: panel destacado con buen
+# contraste, título, y filas con icono + etiqueta + valor resaltado.
+func _construir_tarjeta_stats(gano: bool) -> Control:
+	var tarjeta := PanelContainer.new()
+	tarjeta.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	tarjeta.custom_minimum_size = Vector2(480, 0)
+
+	var estilo := StyleBoxFlat.new()
+	estilo.bg_color = Color(0.10, 0.14, 0.09, 0.55)      # verde-café oscuro traslúcido
+	estilo.set_corner_radius_all(18)
+	estilo.set_content_margin_all(22)
+	estilo.content_margin_left = 30
+	estilo.content_margin_right = 30
+	estilo.set_border_width_all(3)
+	estilo.border_color = Color("7CB342") if gano else Color("E0A030")
+	estilo.shadow_color = Color(0, 0, 0, 0.55)
+	estilo.shadow_size = 10
+	estilo.shadow_offset = Vector2(0, 4)
+	tarjeta.add_theme_stylebox_override("panel", estilo)
+
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 12)
+	tarjeta.add_child(col)
+
+	# Título de la tarjeta.
+	var titulo := Label.new()
+	titulo.text = "RESULTADOS DE LA PARTIDA"
+	titulo.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	titulo.add_theme_font_size_override("font_size", 26)
+	titulo.add_theme_color_override("font_color", Color("7CB342") if gano else Color("E0A030"))
+	titulo.add_theme_color_override("font_outline_color", Color(0, 0, 0))
+	titulo.add_theme_constant_override("outline_size", 5)
+	col.add_child(titulo)
+
+	# Separador fino bajo el título.
+	var sep := HSeparator.new()
+	col.add_child(sep)
+
+	# Datos de la partida.
+	var t_restante: int = max(tiempo, 0)
+	var t_usado: int = max(TIEMPO_INICIAL - t_restante, 0)
+	col.add_child(_fila_estadistica("★", "Puntuación final", "%d" % _puntos_actuales(), Color("FFD54F")))
+	col.add_child(_fila_estadistica("♻", "Basura recolectada", "%d / %d" % [_clasificadas_ok, _total_basura], Color("7CB342")))
+	col.add_child(_fila_estadistica("⌛", "Tiempo empleado", "%02d:%02d" % [t_usado / 60, t_usado % 60], Color("4FC3F7")))
+	col.add_child(_fila_estadistica("☆", "Nivel alcanzado", _nivel_desempeno(gano), Color("FFB74D")))
+	col.add_child(_fila_estadistica("♥", "Vidas restantes", "%d / %d" % [max(_vidas, 0), VIDAS_MAX], Color("E57373")))
+	return tarjeta
+
+# Una fila de la tarjeta de estadísticas: [icono]  etiqueta .......  VALOR.
+func _fila_estadistica(icono: String, etiqueta: String, valor: String, color_icono: Color) -> Control:
+	var fila := HBoxContainer.new()
+	fila.add_theme_constant_override("separation", 14)
+
+	var ic := Label.new()
+	ic.text = icono
+	ic.custom_minimum_size = Vector2(30, 0)
+	ic.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	ic.add_theme_font_size_override("font_size", 26)
+	ic.add_theme_color_override("font_color", color_icono)
+	ic.add_theme_color_override("font_outline_color", Color(0, 0, 0))
+	ic.add_theme_constant_override("outline_size", 3)
+	fila.add_child(ic)
+
+	var et := Label.new()
+	et.text = etiqueta
+	et.add_theme_font_size_override("font_size", 20)
+	et.add_theme_color_override("font_color", Color(0.88, 0.92, 0.85))
+	et.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	fila.add_child(et)
+
+	var va := Label.new()
+	va.text = valor
+	va.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	va.add_theme_font_size_override("font_size", 28)
+	va.add_theme_color_override("font_color", Color("FFE082"))   # amarillo destacado
+	va.add_theme_color_override("font_outline_color", Color(0, 0, 0))
+	va.add_theme_constant_override("outline_size", 3)
+	fila.add_child(va)
+	return fila
+
+# Calcula un "nivel/desempeño" según el resultado y el porcentaje clasificado.
+func _nivel_desempeno(gano: bool) -> String:
+	if gano:
+		return "Maestro Reciclador"
+	var ratio: float = 0.0
+	if _total_basura > 0:
+		ratio = float(_clasificadas_ok) / float(_total_basura)
+	if ratio >= 0.75:
+		return "Experto"
+	elif ratio >= 0.5:
+		return "Bueno"
+	elif ratio >= 0.25:
+		return "Aprendiz"
+	return "Novato"
 
 # Botón "Reintentar" con sus texturas (normal/presionado). Si las imágenes aún
 # no están, cae a un botón de texto para no quedarse sin opción de reintentar.
@@ -628,11 +711,32 @@ func _crear_boton_reintentar() -> Control:
 			b.texture_hover = load(BTN_RETRY_PRESSED)
 		b.ignore_texture_size = true
 		b.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
-		b.custom_minimum_size = Vector2(260, 84)
+		# Acción principal: más grande y destacado.
+		b.custom_minimum_size = Vector2(360, 116)
 		b.pressed.connect(_on_reintentar)
 		return b
 	var tb := _crear_boton_resultado("Reintentar")
 	tb.pressed.connect(_on_reintentar)
+	return tb
+
+# Botón "Home" (volver al menú) con sus texturas normal/presionada. La textura
+# presionada se muestra automáticamente al pulsar, simulando la interacción, y al
+# soltar el clic se ejecuta el regreso al menú. Si las imágenes no están, cae a
+# un botón de texto para no quedarse sin la opción.
+func _crear_boton_home() -> Control:
+	if ResourceLoader.exists(BTN_HOME_NORMAL):
+		var b := TextureButton.new()
+		b.texture_normal = load(BTN_HOME_NORMAL)
+		if ResourceLoader.exists(BTN_HOME_PRESSED):
+			b.texture_pressed = load(BTN_HOME_PRESSED)
+			b.texture_hover = load(BTN_HOME_PRESSED)
+		b.ignore_texture_size = true
+		b.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
+		b.custom_minimum_size = Vector2(101, 101)
+		b.pressed.connect(_on_volver_menu)
+		return b
+	var tb := _crear_boton_resultado("Menú")
+	tb.pressed.connect(_on_volver_menu)
 	return tb
 
 func _crear_boton_resultado(texto: String) -> Button:
