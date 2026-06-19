@@ -469,6 +469,11 @@ func _on_timer_timeout() -> void:
 
 	contador_label.text = "%02d:%02d" % [minutos, segundos]
 
+	# Aviso de "queda un minuto" (una sola vez, al cruzar los 60 segundos).
+	if tiempo == 60:
+		DialogueManager.show_text("¡Queda un minuto!", "bad")
+		DialogueManager.reproducir_sfx_evento("unminuto")
+
 	if tiempo <= 0:
 		contador_label.text = "00:00"
 		# Se acabó el tiempo con basura sin clasificar: derrota.
