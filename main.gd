@@ -599,7 +599,7 @@ func _mostrar_panel_resultado(gano: bool) -> void:
 	fila.anchor_bottom = 1.0
 	fila.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	fila.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	fila.offset_bottom = -45
+	fila.offset_bottom = -5
 	capa.add_child(fila)
 
 	fila.add_child(_crear_boton_reintentar())
@@ -712,7 +712,7 @@ func _crear_boton_reintentar() -> Control:
 		b.ignore_texture_size = true
 		b.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
 		# Acción principal: más grande y destacado.
-		b.custom_minimum_size = Vector2(360, 116)
+		b.custom_minimum_size = Vector2(500, 240)
 		b.pressed.connect(_on_reintentar)
 		return b
 	var tb := _crear_boton_resultado("Reintentar")
