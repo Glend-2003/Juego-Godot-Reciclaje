@@ -456,7 +456,7 @@ func _all_descendants(node: Node) -> Array:
 	return out
 
 
-var tiempo := 180
+var tiempo := 210
 
 
 func _on_timer_timeout() -> void:
