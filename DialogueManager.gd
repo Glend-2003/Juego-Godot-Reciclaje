@@ -56,32 +56,28 @@ var _frases := {
 		{"t": "Creo que tendré que llamar a Willy Pineda.", "a": "creo-que-tendre-que-llamar-a-willy-pineda.mp3"},
 		{"t": "Estamos igual que la Sele: no logramos clasificar.", "a": "estamos-igual-que-la-sele-no-logramos-clasificar.mp3"},
 	],
-	# 5 aciertos seguidos (racha buena).
+	# 5 aciertos seguidos.
 	"combo5": [
 		{"t": "¡Crack! Fiera, mastodonte número uno.", "a": "carck-fiera-mastodonte-numero-uno.mp3"},
-		{"t": "¡Mae, está intratable!", "a": "mae-esta-intratable.mp3"},
-		{"t": "¡Qué monstruo! No falla ninguna.", "a": "que-monstruo-no-falla-ninguna.mp3"},
 	],
-	# 10 aciertos seguidos (racha buenísima).
+	# 10 aciertos seguidos.
 	"combo10": [
 		{"t": "¡Bien, mae! Se merece beca 10.", "a": "bien-mae-se-merece-beca-10.mp3"},
 		{"t": "¡Qué saico! Ya casi lo contrata la muni.", "a": "que-saico-ya-casi-lo-contrata-la-muni.mp3"},
-		{"t": "Ya casi le dan una beca en reciclaje.", "a": "ya-casi-le-dan-una-beca-en-reciclaje.mp3"},
 	],
-	# 3 errores seguidos (racha mala).
+	# 3 errores seguidos (sin audio propio por ahora).
 	"fallos3": [
-		{"t": "¿Está clasificando basura o tirando dados?", "a": "esta-clasificando-basura-o-tirando-dados.mp3"},
-		{"t": "Mae, ¿andás trasnochado?", "a": "mae-andas-trasnochado.mp3"},
-		{"t": "Mae, legalmente está haciendo un experimento social.", "a": "mae-legalmente-esta-haciendo-un-experimento-social.mp3"},
-		{"t": "Mae, ni al propio le sale tan mal.", "a": "mae-ni-al-propio-sale-tan-mal.mp3"},
+		{"t": "¡Mae, ¿anda dormido o qué?", "a": ""},
+		{"t": "¡Revise los colores, compa!", "a": ""},
+		{"t": "¡Así nos llenamos de basura, vea!", "a": ""},
 	],
-	# Al empezar el juego (suena el jingle de inicio).
+	# Al empezar el juego (sin audio propio por ahora).
 	"inicio": [
-		{"t": "¡Mae, aliste esas manos! El planeta ocupa ayuda.", "a": "inicioJuego.mp3"},
-		{"t": "¡Bienvenido! Demuestre que sabe reciclar como un campeón.", "a": "inicioJuego.mp3"},
-		{"t": "¡Vamos con todo! El ambiente está en sus manos.", "a": "inicioJuego.mp3"},
-		{"t": "¡Arrancamos! Clasifique rápido y con cuidado.", "a": "inicioJuego.mp3"},
-		{"t": "¡Póngase vivo! El tiempo corre.", "a": "inicioJuego.mp3"},
+		{"t": "¡Mae, aliste esas manos! El planeta ocupa ayuda.", "a": ""},
+		{"t": "¡Bienvenido! Demuestre que sabe reciclar como un campeón.", "a": ""},
+		{"t": "¡Vamos con todo! El ambiente está en sus manos.", "a": ""},
+		{"t": "¡Arrancamos! Clasifique rápido y con cuidado.", "a": ""},
+		{"t": "¡Póngase vivo! El tiempo corre.", "a": ""},
 	],
 	# Al terminar el juego (sin audio propio por ahora).
 	"final": [
@@ -107,10 +103,9 @@ const AUDIO_DIR := "res://audio/"
 # Sonidos de desenlace (no son frases): los dispara main.gd con
 # reproducir_sfx_evento(). Si el archivo no existe, simplemente no suena.
 const SFX := {
-	"ganar":    "res://audio/ganar.mp3",
-	"perder":   "res://audio/perder.mp3",
-	"final":    "res://audio/final.mp3",
-	"unminuto": "res://audio/unminuto.mp3",
+	"ganar":  "res://audio/ganar.mp3",
+	"perder": "res://audio/perder.mp3",
+	"final":  "res://audio/final.mp3",
 }
 
 # Reproductor de efectos (uno solo: cada nuevo sonido reemplaza al anterior).
