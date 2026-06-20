@@ -25,6 +25,15 @@ const FOREST_PUSH_ENTRADA   := -0.06 # lado de entrada (eje +Z, por donde se ent
 
 const TRASH_RADIO := 24.0            # radio de dispersión de la basura (amplio: hay que caminar)
 
+# Distancia desde el borde del hangar a la que se colocan las paredes invisibles.
+# Define también el rectángulo jugable: la basura nunca aparece fuera de él.
+const HANGAR_WALL_INSET := 15.0
+# Margen extra (m) que se deja libre alrededor de cada estructura y contra las
+# paredes para que la basura no quede pegada/incrustada en ellas.
+const TRASH_MARGEN_PARED := 1.5     # separación mínima respecto a las paredes
+const TRASH_RADIO_BASURERO := 2.5   # zona despejada alrededor de cada basurero
+const TRASH_RADIO_MOTO := 2.0       # zona despejada alrededor de cada moto
+
 # --- Vehículos decorativos ----------------------------------------------------
 # 2 motos como props dentro del hangar, cerca de la entrada. Afinable a ojo:
 const MOTO1 := preload("res://moto1.glb")
@@ -326,6 +335,9 @@ func _spawn_bins_and_caps(angar_aabb: AABB) -> void:
 		inst.add_child(bin)
 		# Colisión física sobre la geometría del basurero (no se atraviesa).
 		_generar_colisiones_trimesh(inst)
+		# Zona prohibida para la basura: no debe aparecer encima del basurero.
+		trash_spawner.agregar_zona_prohibida(
+			Vector2(inst.position.x, inst.position.z), TRASH_RADIO_BASURERO)
 
 	print("[Bins] colocados ", items.size(), " objetos centrados en el hangar (", center_x, ",", center_z, ")")
 
@@ -336,6 +348,25 @@ func _spawn_bins_and_caps(angar_aabb: AABB) -> void:
 		FLOOR_TOP_Y,
 		angar_aabb.position.z + angar_aabb.size.z * 0.5
 	)
+
+	# Área jugable: cara interna de las paredes invisibles, menos un margen, para
+	# que la basura nunca aparezca pegada o incrustada en las paredes.
+	var half_x: float = angar_aabb.size.x * 0.5
+	var half_z: float = angar_aabb.size.z * 0.5
+	var jug_half_x: float = half_x - HANGAR_WALL_INSET - TRASH_MARGEN_PARED
+	var jug_half_z: float = half_z - HANGAR_WALL_INSET - TRASH_MARGEN_PARED
+	trash_spawner.definir_limites(
+		Vector2(centro.x - jug_half_x, centro.z - jug_half_z),
+		Vector2(centro.x + jug_half_x, centro.z + jug_half_z))
+
+	# Zonas prohibidas de las motos decorativas (se colocan en _spawn_vehiculos_decor,
+	# pero su posición es determinista, así que las reservamos aquí).
+	var z_motos: float = centro.z + half_z - MOTO_DECOR_DENTRO
+	trash_spawner.agregar_zona_prohibida(
+		Vector2(centro.x + MOTO_DECOR_DX, z_motos), TRASH_RADIO_MOTO)
+	trash_spawner.agregar_zona_prohibida(
+		Vector2(centro.x + MOTO_DECOR_DX + 3.0, z_motos), TRASH_RADIO_MOTO)
+
 	# Genera la basura aleatoria alrededor del centro (no desaparece sola).
 	trash_spawner.generar(centro, TRASH_RADIO, FLOOR_TOP_Y)
 
@@ -362,7 +393,7 @@ func _spawn_invisible_walls(angar_aabb: AABB) -> void:
 	var half_z: float = angar_aabb.size.z * 0.5
 	var wall_thickness: float = 0.5
 	var wall_height: float = 8.0
-	var inset: float = 15.0
+	var inset: float = HANGAR_WALL_INSET
 	var len_x: float = angar_aabb.size.x - inset * 2.0
 	var len_z: float = angar_aabb.size.z - inset * 2.0
 
@@ -688,7 +719,7 @@ func _mostrar_panel_resultado(gano: bool) -> void:
 	fila.anchor_bottom = 1.0
 	fila.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	fila.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	fila.offset_bottom = -5
+	fila.offset_bottom = 20
 	capa.add_child(fila)
 
 	fila.add_child(_crear_boton_reintentar())
