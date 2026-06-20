@@ -616,17 +616,18 @@ func _terminar_juego(gano: bool) -> void:
 	timer.stop()
 	# Termina la partida: se corta la música ambiental.
 	DialogueManager.detener_musica_ambiente()
+	# Limpiamos cualquier toast que siga en pantalla: al pausar el juego su
+	# animación quedaría congelada encima de la pantalla de resultado.
+	DialogueManager.limpiar_toasts()
 	# El jugador captura el mouse para la cámara; lo liberamos para que el cursor
 	# vuelva a verse y se puedan tocar los botones del panel de resultado.
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	# Solo el jingle de desenlace; no mostramos mensajes/toasts al terminar para
+	# que ninguno quede pegado sobre la pantalla de resultado.
 	if gano:
-		DialogueManager.show_text("¡Clasificaste toda la basura! ¡Ganaste!", "good")
 		DialogueManager.reproducir_sfx_evento("ganar")
 	else:
-		# Jingle de derrota al perder (sin vidas o por tiempo).
 		DialogueManager.reproducir_lost()
-		# Frase de cierre (categoría "final").
-		DialogueManager.show_dialogue("final", "neutral")
 	_mostrar_panel_resultado(gano)
 	get_tree().paused = true
 

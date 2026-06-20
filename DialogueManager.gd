@@ -216,6 +216,16 @@ func detener_musica_ambiente() -> void:
 	if _musica:
 		_musica.stop()
 
+## Elimina de inmediato todos los toasts visibles. Se llama al terminar la
+## partida: los toasts se animan con un tween atado al árbol, así que al pausar
+## el juego (get_tree().paused) se quedarían congelados a media animación encima
+## de la pantalla de resultado. Limpiándolos antes evitamos ese mensaje pegado.
+func limpiar_toasts() -> void:
+	if _contenedor == null:
+		return
+	for hijo in _contenedor.get_children():
+		hijo.queue_free()
+
 ## Jingle corto de acierto (cada vez que se clasifica bien una basura).
 func reproducir_win() -> void:
 	_reproducir_en(_jingle, SFX_WIN)
