@@ -1,18 +1,10 @@
 extends RefCounted
 class_name Categorias
 # Categorías de basura según el basurero al que pertenecen.
-#   AZUL  = Plásticos (botellas, envases, bolsas plásticas — limpios)
-#   VERDE = Orgánicos (restos de frutas/verduras, cáscaras, borra de café)
-#   NEGRO = Residuos no valorizables (papel higiénico, pañales, cartón con grasa)
-#   GRIS  = Papel y Cartón (cajas, periódicos, cuadernos — secos y limpios)
-#   TAPAS = Tapas plásticas exclusivamente (campañas de reciclaje específicas)
-#
-# Mantengo el orden histórico (AZUL=0, VERDE=1, NEGRO=2) para no romper datos
-# guardados; las nuevas (GRIS, TAPAS) se agregan al final.
 
 enum Tipo { AZUL, VERDE, NEGRO, GRIS, TAPAS }
 
-# Nombre legible (para etiquetas, hint y mensajes de feedback).
+# Nombre legible.
 static func nombre(t: int) -> String:
 	match t:
 		Tipo.AZUL:
@@ -27,7 +19,7 @@ static func nombre(t: int) -> String:
 			return "Tapas plásticas"
 	return "?"
 
-# Color representativo del basurero (usado para placeholders/iconos).
+# Color representativo del basurero.
 static func color(t: int) -> Color:
 	match t:
 		Tipo.AZUL:

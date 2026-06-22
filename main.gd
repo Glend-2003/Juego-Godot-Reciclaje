@@ -3,42 +3,31 @@ extends Node3D
 const FOREST_SCENE := preload("res://Meshy_AI_Floating_Forest_Islan_0520035441_texture.glb")
 const FLOOR_TOP_Y := 1.75
 const FOREST_SCALE := 1.0
-const FOREST_RING_DEPTH := 3         # anillos extra de islas por FUERA del hangar
-									 # (con niebla 3 alcanza; antes 6 = 326 islas y patrón visible)
+const FOREST_RING_DEPTH := 3         # anillos extra de islas por fuera del hangar
 const FOREST_TILE_OVERLAP := 0.92    # <1 = solape leve para evitar huecos
-const FOREST_Y_OFFSET := -6.0        # afinación manual: + sube las islas, - las hunde
-									 # (más negativo = menos "flotante" y oculta más la base nubosa)
+const FOREST_Y_OFFSET := -6.0        # + sube las islas, - las hunde
 # Solape de la primera fila de islas contra la pared del hangar.
-#   negativo = el verde se mete un poco BAJO el borde del hangar (sin hueco)
-#   0.0      = el verde arranca EXACTO en la pared
-#   positivo = deja un huequito entre la pared y el verde
-# Afiná este valor para que "el fin del hangar coincida con el inicio del verde".
 const FOREST_WALL_OVERLAP := 0.07
 
-# Empuje EXTRA por lado (se SUMA a FOREST_WALL_OVERLAP solo en ese lado), para
-# alejar el verde de un costado puntual sin mover los demás. Subí a ~0.15 el lado
-# que necesites. Orientación según el jugador entrando al hangar (mira al fondo):
-const FOREST_PUSH_IZQUIERDA := 0.0   # lado izquierdo  (eje -X, donde están los basureros)
-const FOREST_PUSH_DERECHA   := 0.0   # lado derecho    (eje +X)
-const FOREST_PUSH_FONDO     := -0.06 # lado del fondo  (eje -Z, al frente al entrar) — pegado a la abertura
-const FOREST_PUSH_ENTRADA   := -0.06 # lado de entrada (eje +Z, por donde se entra) — pegado a la abertura
+# Empuje extra por lado (se suma a FOREST_WALL_OVERLAP solo en ese lado).
+const FOREST_PUSH_IZQUIERDA := 0.0   # eje -X
+const FOREST_PUSH_DERECHA   := 0.0   # eje +X
+const FOREST_PUSH_FONDO     := -0.06 # eje -Z
+const FOREST_PUSH_ENTRADA   := -0.06 # eje +Z
 
-const TRASH_RADIO := 24.0            # radio de dispersión de la basura (amplio: hay que caminar)
+const TRASH_RADIO := 24.0            # radio de dispersión de la basura
 
-# Distancia desde el borde del hangar a la que se colocan las paredes invisibles.
-# Define también el rectángulo jugable: la basura nunca aparece fuera de él.
+# Distancia del borde del hangar a las paredes invisibles (define el área jugable).
 const HANGAR_WALL_INSET := 15.0
-# Margen extra (m) que se deja libre alrededor de cada estructura y contra las
-# paredes para que la basura no quede pegada/incrustada en ellas.
-const TRASH_MARGEN_PARED := 1.5     # separación mínima respecto a las paredes
-const TRASH_RADIO_BASURERO := 2.5   # zona despejada alrededor de cada basurero
-const TRASH_RADIO_MOTO := 2.0       # zona despejada alrededor de cada moto
+# Margen libre alrededor de estructuras para que la basura no quede incrustada.
+const TRASH_MARGEN_PARED := 1.5
+const TRASH_RADIO_BASURERO := 2.5
+const TRASH_RADIO_MOTO := 2.0
 
 # --- Vehículos decorativos ----------------------------------------------------
-# 2 motos como props dentro del hangar, cerca de la entrada. Afinable a ojo:
 const MOTO1 := preload("res://moto1.glb")
 const MOTO2 := preload("res://moto2.glb")
-const MOTO_DECOR_DX := 9.0      # X de las motos respecto al centro del hangar
+const MOTO_DECOR_DX := 9.0      # X de las motos respecto al centro
 const MOTO_DECOR_DENTRO := 16.0 # qué tan adentro desde la entrada (+Z)
 
 @onready var world_env: WorldEnvironment = $WorldEnvironment
@@ -50,29 +39,25 @@ const MOTO_DECOR_DENTRO := 16.0 # qué tan adentro desde la entrada (+Z)
 @onready var timer: Timer = $Timer
 @onready var trash_spawner: TrashSpawner = $TrashSpawner
 
-# Se emite cuando el mundo terminó de construirse por completo (hangar, bosque,
-# colisiones, basureros y basura). La pantalla de carga espera esta señal para
-# recién entonces revelar el juego, evitando que se vea "armándose".
+# Se emite cuando el mundo terminó de armarse. La pantalla de carga la espera.
 signal mundo_listo
 
-# Contador de basura restante (panelito en la parte inferior-central).
+# Contador de basura restante.
 var _label_basura: Label
 var _basura_restante: int = -1
 
-# --- Condiciones de victoria / derrota --------------------------------------
-# Victoria: clasificar correctamente TODA la basura antes de que se acabe el
-# tiempo. Derrota: que el reloj llegue a 00:00 con basura sin clasificar.
-var _total_basura: int = 0        # cuántas basuras hay que clasificar en total
-var _clasificadas_ok: int = 0     # cuántas se han depositado correctamente
+# --- Victoria / derrota -----------------------------------------------------
+# Victoria: clasificar toda la basura a tiempo. Derrota: 00:00 con basura pendiente.
+var _total_basura: int = 0
+var _clasificadas_ok: int = 0
 var _juego_terminado: bool = false
 
-# Vidas del personaje: cada depósito en el basurero equivocado cuesta una vida.
-# Al llegar a 0 se pierde la partida.
+# Vidas: cada depósito equivocado cuesta una. A 0, se pierde.
 const VIDAS_MAX := 3
 var _vidas: int = VIDAS_MAX
 var _label_vidas: Label
 
-# Menú de pausa (ESC): null = cerrado, CanvasLayer = abierto.
+# Menú de pausa (ESC): null = cerrado.
 var _pausa_capa: CanvasLayer = null
 
 func _ready() -> void:
@@ -97,27 +82,21 @@ func _ready() -> void:
 	_crear_contador_basura()
 	_crear_contador_vidas()
 
-	# Las basuras instancian su modelo de forma asíncrona; esperamos unos frames
-	# para que ya estén visibles antes de avisar que el mundo está listo.
+	# Esperar unos frames a que las basuras instancien su modelo.
 	await get_tree().process_frame
 	await get_tree().process_frame
 	await get_tree().process_frame
 
-	# El mundo está completamente armado: avisamos para que se quite la pantalla
-	# de carga y se revele el juego ya listo.
+	# El mundo está listo: avisar para revelar el juego.
 	mundo_listo.emit()
 
-	# Música ambiental en bucle durante toda la partida.
 	DialogueManager.iniciar_musica_ambiente()
-
-	# Diálogo de bienvenida (frase aleatoria de la categoría "inicio").
 	DialogueManager.show_dialogue("inicio", "neutral")
 
 func _process(_delta: float) -> void:
 	_actualizar_contador_basura()
 
-# Panelito tipo letrero de madera (en armonía con los toasts y los banners) que
-# muestra cuánta basura queda en el piso. Anclado abajo-centro.
+# Panelito con la basura restante, anclado abajo-centro.
 func _crear_contador_basura() -> void:
 	var capa: CanvasLayer = $CanvasLayer
 	var tarjeta := PanelContainer.new()
@@ -132,13 +111,13 @@ func _crear_contador_basura() -> void:
 	tarjeta.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 	var estilo := StyleBoxFlat.new()
-	estilo.bg_color = Color(0.16, 0.11, 0.07, 0.88)   # café oscuro semitransparente
+	estilo.bg_color = Color(0.16, 0.11, 0.07, 0.88)
 	estilo.set_corner_radius_all(12)
 	estilo.set_content_margin_all(8)
 	estilo.content_margin_left = 16
 	estilo.content_margin_right = 16
 	estilo.set_border_width_all(2)
-	estilo.border_color = Color("7CB342")             # verde GreenUNA
+	estilo.border_color = Color("7CB342")
 	estilo.shadow_color = Color(0, 0, 0, 0.4)
 	estilo.shadow_size = 4
 	estilo.shadow_offset = Vector2(0, 3)
@@ -154,8 +133,7 @@ func _crear_contador_basura() -> void:
 	tarjeta.add_child(_label_basura)
 	_actualizar_contador_basura()
 
-# Panelito de vidas (corazones) estilo madera, anclado arriba-izquierda debajo
-# del cronómetro.
+# Panelito de vidas (corazones), arriba-izquierda bajo el cronómetro.
 func _crear_contador_vidas() -> void:
 	var capa: CanvasLayer = $CanvasLayer
 	var tarjeta := PanelContainer.new()
@@ -173,7 +151,7 @@ func _crear_contador_vidas() -> void:
 	estilo.content_margin_left = 16
 	estilo.content_margin_right = 16
 	estilo.set_border_width_all(2)
-	estilo.border_color = Color("C0392B")             # rojo (vidas)
+	estilo.border_color = Color("C0392B")
 	estilo.shadow_color = Color(0, 0, 0, 0.4)
 	estilo.shadow_size = 4
 	estilo.shadow_offset = Vector2(0, 3)
@@ -198,7 +176,7 @@ func _actualizar_vidas() -> void:
 		s += "♥" if i < _vidas else "♡"
 	_label_vidas.text = s
 
-# Refresca el texto solo cuando cambia el número (evita reescribir cada frame).
+# Refresca el texto solo cuando cambia el número.
 func _actualizar_contador_basura() -> void:
 	if _label_basura == null:
 		return
@@ -209,7 +187,6 @@ func _actualizar_contador_basura() -> void:
 	_label_basura.text = "Basura restante: %d" % n
 
 func _conectar_contador_monedas() -> void:
-	# Conecta la señal del PickupSystem del jugador al label de puntos del banner.
 	var jugador := get_node_or_null("Player")
 	if jugador == null or not jugador.has_method("get_pickup_system"):
 		return
@@ -219,23 +196,21 @@ func _conectar_contador_monedas() -> void:
 	pickup.monedas_cambiaron.connect(_on_monedas_cambiaron)
 	if pickup.has_signal("basura_clasificada"):
 		pickup.basura_clasificada.connect(_on_basura_clasificada)
-	# Para que la basura soltada con E vuelva al piso y siga siendo recolectable.
+	# Para que la basura soltada vuelva al piso y siga recolectable.
 	pickup.set("_respawn_parent", trash_spawner)
 	puntos_label.text = "%d" % pickup.get_monedas()
 
-# Cada vez que el jugador deposita una basura. Si fue correcta, suma a la meta;
-# al clasificar TODA la basura, gana.
+# Al depositar una basura. Si fue correcta suma a la meta; al completar, gana.
 func _on_basura_clasificada(correcta: bool) -> void:
 	if _juego_terminado:
 		return
 	if correcta:
 		_clasificadas_ok += 1
-		# Jingle de acierto en cada basura bien clasificada.
 		DialogueManager.reproducir_win()
 		if _total_basura > 0 and _clasificadas_ok >= _total_basura:
 			_terminar_juego(true)
 	else:
-		# Error de clasificación: cuesta una vida. Sin vidas, se pierde.
+		# Error: cuesta una vida. Sin vidas, se pierde.
 		_vidas -= 1
 		_actualizar_vidas()
 		if _vidas <= 0:
@@ -252,18 +227,12 @@ func _on_monedas_cambiaron(total: int, delta: int) -> void:
 	tw.tween_property(puntos_label, "scale", Vector2.ONE, 0.18)
 	tw.tween_callback(func(): puntos_label.remove_theme_color_override("font_color"))
 
-# Genera colisiones REALES del hangar siguiendo la geometría del mesh.
-# Esto crea un StaticBody3D + ConcavePolygonShape3D por cada MeshInstance3D
-# dentro del Angar (paredes, columnas, marcos, etc.), de modo que el jugador
-# choca exactamente con lo que ve. Es lo más cercano a un "level art = level
-# collision" y elimina la necesidad de paredes invisibles aproximadas.
+# Crea colisiones del hangar siguiendo la geometría de cada mesh.
 func _generate_hangar_collisions() -> void:
 	var count: int = _generar_colisiones_trimesh(angar)
 	print("[Hangar] Colisiones trimesh generadas para ", count, " meshes del Angar")
 
-# Recorre todos los MeshInstance3D descendientes de "raiz" y les crea una
-# colisión trimesh (StaticBody3D + ConcavePolygonShape3D) que sigue exactamente
-# la geometría visible. Devuelve la cantidad de meshes procesados.
+# Crea colisión trimesh para cada MeshInstance3D bajo "raiz". Devuelve cuántas.
 func _generar_colisiones_trimesh(raiz: Node) -> int:
 	var count: int = 0
 	for n in _all_descendants(raiz):
@@ -287,25 +256,17 @@ const BIN_VERDE := preload("res://basurero verde.glb")
 const BIN_NEGRO := preload("res://basurero-negro.glb")
 const CAP_COLLECTION := preload("res://Meshy_AI_Bottle_Cap_Collection_0618014945_texture.glb")
 
-# Desplazamiento de TODA la fila de basureros respecto al centro del hangar.
-# Negativo en X = hacia la izquierda del jugador (que entra mirando hacia -Z).
-# Ajustá estos dos valores si querés afinar la posición.
+# Desplazamiento de la fila de basureros respecto al centro del hangar.
 const BINS_OFFSET_X := -6.0
 const BINS_OFFSET_Z := 0.0
 
 func _spawn_bins_and_caps(angar_aabb: AABB) -> void:
-	# Coloca los 3 basureros + la colección de tapas en una línea centrada
-	# dentro del hangar para que el jugador los vea al entrar.
+	# Coloca los basureros + la colección de tapas en una línea centrada.
 	var center_x: float = angar_aabb.position.x + angar_aabb.size.x * 0.5
 	var center_z: float = angar_aabb.position.z + angar_aabb.size.z * 0.5
 	var y: float = FLOOR_TOP_Y
 
 	var spacing: float = 6.0
-	# Orden y categorías según las reglas de reciclaje del juego:
-	#   Azul = Plásticos, Gris = Papel y Cartón, Verde = Orgánicos,
-	#   Negro = No valorizables, CapCollection = Tapas plásticas exclusivas.
-	# Tapas va junto al azul (índice 1) para que quede en la fila visible y a la
-	# misma distancia que el resto.
 	var items := [
 		{"scene": BIN_AZUL,       "scale": 1.5, "name": "BasureroAzul",   "cat": Categorias.Tipo.AZUL,  "any": false},
 		{"scene": CAP_COLLECTION, "scale": 1.0, "name": "CapCollection",  "cat": Categorias.Tipo.TAPAS, "any": false},
@@ -327,30 +288,28 @@ func _spawn_bins_and_caps(angar_aabb: AABB) -> void:
 		root.add_child(inst)
 		inst.scale = Vector3(it["scale"], it["scale"], it["scale"])
 		inst.position = Vector3(start_x + float(i) * spacing + BINS_OFFSET_X, y, center_z + BINS_OFFSET_Z)
-		# Área de depósito (Basurero) que detecta al jugador.
+		# Área de depósito que detecta al jugador.
 		var bin: Area3D = BasureroScript.new()
 		bin.set("categoria", it["cat"])
 		bin.set("acepta_todo", it["any"])
 		bin.set("radio", 1.0)
 		inst.add_child(bin)
-		# Colisión física sobre la geometría del basurero (no se atraviesa).
+		# Colisión física sobre la geometría del basurero.
 		_generar_colisiones_trimesh(inst)
-		# Zona prohibida para la basura: no debe aparecer encima del basurero.
+		# Zona prohibida para la basura.
 		trash_spawner.agregar_zona_prohibida(
 			Vector2(inst.position.x, inst.position.z), TRASH_RADIO_BASURERO)
 
 	print("[Bins] colocados ", items.size(), " objetos centrados en el hangar (", center_x, ",", center_z, ")")
 
-	# Centro del hangar a la altura del piso: punto de referencia para la basura
-	# y los basureros.
+	# Centro del hangar a la altura del piso.
 	var centro := Vector3(
 		angar_aabb.position.x + angar_aabb.size.x * 0.5,
 		FLOOR_TOP_Y,
 		angar_aabb.position.z + angar_aabb.size.z * 0.5
 	)
 
-	# Área jugable: cara interna de las paredes invisibles, menos un margen, para
-	# que la basura nunca aparezca pegada o incrustada en las paredes.
+	# Área jugable: cara interna de las paredes menos un margen.
 	var half_x: float = angar_aabb.size.x * 0.5
 	var half_z: float = angar_aabb.size.z * 0.5
 	var jug_half_x: float = half_x - HANGAR_WALL_INSET - TRASH_MARGEN_PARED
@@ -359,26 +318,21 @@ func _spawn_bins_and_caps(angar_aabb: AABB) -> void:
 		Vector2(centro.x - jug_half_x, centro.z - jug_half_z),
 		Vector2(centro.x + jug_half_x, centro.z + jug_half_z))
 
-	# Zonas prohibidas de las motos decorativas (se colocan en _spawn_vehiculos_decor,
-	# pero su posición es determinista, así que las reservamos aquí).
+	# Zonas prohibidas de las motos (posición determinista).
 	var z_motos: float = centro.z + half_z - MOTO_DECOR_DENTRO
 	trash_spawner.agregar_zona_prohibida(
 		Vector2(centro.x + MOTO_DECOR_DX, z_motos), TRASH_RADIO_MOTO)
 	trash_spawner.agregar_zona_prohibida(
 		Vector2(centro.x + MOTO_DECOR_DX + 3.0, z_motos), TRASH_RADIO_MOTO)
 
-	# Genera la basura aleatoria alrededor del centro (no desaparece sola).
+	# Genera la basura aleatoria.
 	trash_spawner.generar(centro, TRASH_RADIO, FLOOR_TOP_Y)
 
-	# Total de basura a clasificar: es la meta de victoria. Las basuras se añaden
-	# de forma síncrona (su _ready las mete al grupo "basura"), así que ya están
-	# todas contadas en este punto.
+	# Total de basura a clasificar (meta de victoria).
 	_total_basura = get_tree().get_nodes_in_group("basura").size()
 	print("[Win] Total de basura a clasificar: ", _total_basura)
 
-# Paredes invisibles en el perímetro del hangar como red de seguridad: aunque las
-# colisiones reales del Angar bloquean las paredes visibles, este muro extra
-# garantiza que el jugador no escape al bosque por puertas/aberturas del modelo.
+# Paredes invisibles en el perímetro como red de seguridad.
 func _spawn_invisible_walls(angar_aabb: AABB) -> void:
 	var walls_root := StaticBody3D.new()
 	walls_root.name = "InvisibleWalls"
@@ -420,15 +374,7 @@ func _add_wall(parent: StaticBody3D, pos: Vector3, size: Vector3) -> void:
 	col.position = pos
 	parent.add_child(col)
 
-# Ajusta cielo y niebla para que el paisaje se vea natural: un cielo limpio en
-# degradado y una niebla de distancia que difumina las islas lejanas hacia el
-# horizonte. La niebla es el truco clave: oculta el patrón repetido del mosaico
-# de islas y hace desaparecer las masas de islas/nubes que asomaban "en el cielo",
-# dejando solo un horizonte suave y creíble.
-#
-# Perillas para afinar (todas a ojo, probando en el juego):
-#   FOG_DENSITY    -> qué tan rápido se difumina la distancia (más = más cerrado)
-#   FOG_SKY_AFFECT -> cuánta niebla toca el cielo (0 = cielo nítido, 1 = todo nublado)
+# Cielo y niebla. La niebla oculta el patrón repetido del mosaico de islas.
 const FOG_DENSITY := 0.0012
 const FOG_SKY_AFFECT := 0.0
 
@@ -437,26 +383,26 @@ func _configurar_ambiente() -> void:
 	if env == null:
 		return
 
-	# --- Cielo en degradado natural (azul arriba, neblinoso al horizonte) ---
+	# Cielo en degradado.
 	if env.sky != null and env.sky.sky_material is ProceduralSkyMaterial:
 		var sky_mat: ProceduralSkyMaterial = env.sky.sky_material
-		sky_mat.sky_top_color = Color(0.36, 0.58, 0.86)      # azul cielo
-		sky_mat.sky_horizon_color = Color(0.80, 0.86, 0.90)  # neblina clara al ras
+		sky_mat.sky_top_color = Color(0.36, 0.58, 0.86)
+		sky_mat.sky_horizon_color = Color(0.80, 0.86, 0.90)
 		sky_mat.sky_curve = 0.12
 		sky_mat.ground_horizon_color = Color(0.80, 0.86, 0.90)
 		sky_mat.ground_bottom_color = Color(0.62, 0.70, 0.66)
 
-	# --- Niebla de distancia (oculta islas lejanas y el patrón del mosaico) ---
+	# Niebla de distancia.
 	env.fog_enabled = true
 	env.fog_mode = Environment.FOG_MODE_EXPONENTIAL
-	env.fog_light_color = Color(0.80, 0.86, 0.90)  # mismo tono que el horizonte
+	env.fog_light_color = Color(0.80, 0.86, 0.90)
 	env.fog_density = FOG_DENSITY
-	env.fog_sky_affect = FOG_SKY_AFFECT            # 0 = cielo totalmente limpio
+	env.fog_sky_affect = FOG_SKY_AFFECT
 	env.fog_aerial_perspective = 0.0
 	print("[Ambiente] cielo y niebla configurados (density=", FOG_DENSITY, ")")
 
 func _spawn_forest(angar_aabb: AABB) -> void:
-	# Sonda para medir el AABB real de una isla a la escala que vamos a usar.
+	# Sonda para medir el AABB real de una isla a la escala usada.
 	var probe: Node3D = FOREST_SCENE.instantiate()
 	add_child(probe)
 	probe.scale = Vector3(FOREST_SCALE, FOREST_SCALE, FOREST_SCALE)
@@ -483,27 +429,21 @@ func _spawn_forest(angar_aabb: AABB) -> void:
 	forest_root.name = "Forest"
 	add_child(forest_root)
 
-	# Colocar el origen del GLB al nivel del piso (la mayoría de modelos de
-	# islas tienen el pivote en su superficie). Si no, ajustar FOREST_Y_OFFSET.
 	var y: float = FLOOR_TOP_Y + FOREST_Y_OFFSET
-	# Solape de la primera fila contra la pared del hangar (ver FOREST_WALL_OVERLAP arriba).
 	var wall_overlap: float = FOREST_WALL_OVERLAP
 
-	# Solape por lado = solape base + empuje extra de ese lado. Así se puede alejar
-	# un costado puntual (p.ej. el de los carros rojos) sin tocar los otros tres.
+	# Solape por lado = base + empuje extra de ese lado.
 	var ov_derecha: float = wall_overlap + FOREST_PUSH_DERECHA     # +X
 	var ov_izquierda: float = wall_overlap + FOREST_PUSH_IZQUIERDA # -X
 	var ov_entrada: float = wall_overlap + FOREST_PUSH_ENTRADA     # +Z
 	var ov_fondo: float = wall_overlap + FOREST_PUSH_FONDO         # -Z
 
-	# Posiciones a lo largo de X: columnas externas (a izquierda y derecha del hangar)
-	# + columnas internas (cruzando el ancho del hangar). La primera externa siempre
-	# arranca pegada a la pared.
+	# Posiciones en X: columnas externas (izq/der) + internas (cruzando el ancho).
 	var xs: Array[float] = []
 	for k in range(FOREST_RING_DEPTH + 1):
 		var base_off: float = hangar_half_x + tile_size_x * (0.5 + float(k))
-		xs.append(center.x + base_off + ov_derecha * tile_size_x)    # lado derecho (+X)
-		xs.append(center.x - base_off - ov_izquierda * tile_size_x)  # lado izquierdo (-X)
+		xs.append(center.x + base_off + ov_derecha * tile_size_x)    # +X
+		xs.append(center.x - base_off - ov_izquierda * tile_size_x)  # -X
 	var inner_count_x: int = int(ceil((2.0 * hangar_half_x) / tile_size_x))
 	for j in range(inner_count_x):
 		xs.append(center.x - hangar_half_x + tile_size_x * (0.5 + float(j)))
@@ -511,8 +451,8 @@ func _spawn_forest(angar_aabb: AABB) -> void:
 	var zs: Array[float] = []
 	for k in range(FOREST_RING_DEPTH + 1):
 		var base_off: float = hangar_half_z + tile_size_z * (0.5 + float(k))
-		zs.append(center.z + base_off + ov_entrada * tile_size_z)    # lado entrada (+Z)
-		zs.append(center.z - base_off - ov_fondo * tile_size_z)      # lado fondo (-Z)
+		zs.append(center.z + base_off + ov_entrada * tile_size_z)    # +Z
+		zs.append(center.z - base_off - ov_fondo * tile_size_z)      # -Z
 	var inner_count_z: int = int(ceil((2.0 * hangar_half_z) / tile_size_z))
 	for j in range(inner_count_z):
 		zs.append(center.z - hangar_half_z + tile_size_z * (0.5 + float(j)))
@@ -520,8 +460,7 @@ func _spawn_forest(angar_aabb: AABB) -> void:
 	var spawned: int = 0
 	for px in xs:
 		for pz in zs:
-			# Saltar islas cuyo centro caiga totalmente dentro del hangar
-			# (esa zona es el propio hangar, no se rellena de bosque).
+			# Saltar islas cuyo centro caiga dentro del hangar.
 			var inside_hangar: bool = (
 				abs(px - center.x) < hangar_half_x
 				and abs(pz - center.z) < hangar_half_z
@@ -536,8 +475,7 @@ func _spawn_forest(angar_aabb: AABB) -> void:
 
 	print("[Forest] tile=(", tile_size_x, ",", tile_size_z, ") top_rel=", island_top_relative, " xs=", xs.size(), " zs=", zs.size(), " islas=", spawned, " y=", y)
 
-# Coloca los vehículos decorativos: un auto rojo (recortado de la colección)
-# afuera, frente al fondo del hangar, y las 2 motos adentro cerca de la entrada.
+# Coloca las 2 motos decorativas adentro, cerca de la entrada.
 func _spawn_vehiculos_decor(angar_aabb: AABB) -> void:
 	var center := Vector3(
 		angar_aabb.position.x + angar_aabb.size.x * 0.5,
@@ -549,7 +487,6 @@ func _spawn_vehiculos_decor(angar_aabb: AABB) -> void:
 	root.name = "VehiculosDecor"
 	add_child(root)
 
-	# --- Motos adentro, cerca de la entrada (+Z), a un costado ---
 	var z_motos: float = center.z + half_z - MOTO_DECOR_DENTRO
 	var m1: Node3D = MOTO1.instantiate()
 	root.add_child(m1)
@@ -595,35 +532,29 @@ func _on_timer_timeout() -> void:
 
 	contador_label.text = "%02d:%02d" % [minutos, segundos]
 
-	# Aviso de "queda un minuto" (una sola vez, al cruzar los 60 segundos).
+	# Aviso de "queda un minuto" (una sola vez).
 	if tiempo == 60:
 		DialogueManager.show_text("¡Queda un minuto!", "bad")
 		DialogueManager.reproducir_sfx_evento("unminuto")
 
 	if tiempo <= 0:
 		contador_label.text = "00:00"
-		# Se acabó el tiempo con basura sin clasificar: derrota.
+		# Se acabó el tiempo con basura pendiente: derrota.
 		_terminar_juego(false)
 
 # --- Fin de partida ---------------------------------------------------------
 
-# Cierra la partida: detiene el reloj, muestra el panel de resultado y pausa el
-# juego. 'gano' = true si el jugador clasificó toda la basura a tiempo.
+# Cierra la partida: detiene el reloj, muestra el resultado y pausa el juego.
 func _terminar_juego(gano: bool) -> void:
 	if _juego_terminado:
 		return
 	_juego_terminado = true
 	timer.stop()
-	# Termina la partida: se corta la música ambiental.
 	DialogueManager.detener_musica_ambiente()
-	# Limpiamos cualquier toast que siga en pantalla: al pausar el juego su
-	# animación quedaría congelada encima de la pantalla de resultado.
+	# Limpiar toasts para que no queden congelados sobre la pantalla de resultado.
 	DialogueManager.limpiar_toasts()
-	# El jugador captura el mouse para la cámara; lo liberamos para que el cursor
-	# vuelva a verse y se puedan tocar los botones del panel de resultado.
+	# Liberar el mouse para poder tocar los botones.
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-	# Solo el jingle de desenlace; no mostramos mensajes/toasts al terminar para
-	# que ninguno quede pegado sobre la pantalla de resultado.
 	if gano:
 		DialogueManager.reproducir_sfx_evento("ganar")
 	else:
@@ -640,8 +571,7 @@ func _puntos_actuales() -> int:
 			return ps.get_monedas()
 	return 0
 
-# Umbral de "pocos puntos" para el sonido de derrota floja: un cuarto del total
-# de basura (con 20 basuras => 5 puntos o menos cuenta como pocos).
+# Umbral de "pocos puntos": un cuarto del total de basura.
 func _umbral_pocos_puntos() -> int:
 	return int(_total_basura * 0.25)
 
@@ -653,9 +583,8 @@ const BTN_RETRY_PRESSED := "res://boton de voolver a intentar presionado.png"
 const BTN_HOME_NORMAL := "res://BotonSinPresionarHome.png"
 const BTN_HOME_PRESSED := "res://BotonPresionadoHome.png"
 
-# Panel de resultado: imagen de ganar/perder a pantalla completa, un resumen
-# compacto y los botones Reintentar / Menú. Vive en su propia CanvasLayer en
-# modo ALWAYS para seguir respondiendo aunque el árbol esté pausado.
+# Panel de resultado: imagen, resumen y botones. En CanvasLayer ALWAYS para
+# seguir respondiendo con el árbol pausado.
 func _mostrar_panel_resultado(gano: bool) -> void:
 	var capa := CanvasLayer.new()
 	capa.name = "ResultadoLayer"
@@ -663,14 +592,13 @@ func _mostrar_panel_resultado(gano: bool) -> void:
 	capa.process_mode = Node.PROCESS_MODE_ALWAYS
 	add_child(capa)
 
-	# Fondo oscuro que tapa el juego de atrás (y rellena las bandas de la imagen).
+	# Fondo oscuro.
 	var fondo := ColorRect.new()
 	fondo.color = Color(0, 0, 0, 0.85)
 	fondo.set_anchors_preset(Control.PRESET_FULL_RECT)
 	capa.add_child(fondo)
 
-	# Imagen de ganar/perder redimensionada para LLENAR toda la pantalla (se ve
-	# completa y ocupa todo el espacio, sin recortes ni bandas).
+	# Imagen de ganar/perder a pantalla completa.
 	var ruta_img := IMG_WIN if gano else IMG_LOSE
 	if ResourceLoader.exists(ruta_img):
 		var img := TextureRect.new()
@@ -681,7 +609,7 @@ func _mostrar_panel_resultado(gano: bool) -> void:
 		img.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		capa.add_child(img)
 	else:
-		# Respaldo si la imagen todavía no está importada: título de texto.
+		# Respaldo si la imagen no está importada: título de texto.
 		var titulo := Label.new()
 		if gano:
 			titulo.text = "¡GANASTE!"
@@ -696,8 +624,7 @@ func _mostrar_panel_resultado(gano: bool) -> void:
 		titulo.add_theme_constant_override("outline_size", 6)
 		capa.add_child(titulo)
 
-	# Tarjeta destacada con las estadísticas, anclada abajo pero corrida un poco
-	# a la derecha (independiente de los botones).
+	# Tarjeta de estadísticas, anclada abajo y corrida a la derecha.
 	var tarjeta := _construir_tarjeta_stats(gano)
 	tarjeta.anchor_left = 0.5
 	tarjeta.anchor_right = 0.5
@@ -705,12 +632,12 @@ func _mostrar_panel_resultado(gano: bool) -> void:
 	tarjeta.anchor_bottom = 1.0
 	tarjeta.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	tarjeta.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	tarjeta.offset_left = 120        # corrida a la derecha
+	tarjeta.offset_left = 120
 	tarjeta.offset_right = 120
-	tarjeta.offset_bottom = -170     # por encima de los botones
+	tarjeta.offset_bottom = -170
 	capa.add_child(tarjeta)
 
-	# Botones centrados abajo: Reintentar (acción principal) + Home (volver al menú).
+	# Botones abajo: Reintentar + Home.
 	var fila := HBoxContainer.new()
 	fila.add_theme_constant_override("separation", 28)
 	fila.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -726,15 +653,14 @@ func _mostrar_panel_resultado(gano: bool) -> void:
 	fila.add_child(_crear_boton_reintentar())
 	fila.add_child(_crear_boton_home())
 
-# Construye la tarjeta de estadísticas finales: panel destacado con buen
-# contraste, título, y filas con icono + etiqueta + valor resaltado.
+# Tarjeta de estadísticas finales.
 func _construir_tarjeta_stats(gano: bool) -> Control:
 	var tarjeta := PanelContainer.new()
 	tarjeta.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	tarjeta.custom_minimum_size = Vector2(480, 0)
 
 	var estilo := StyleBoxFlat.new()
-	estilo.bg_color = Color(0.10, 0.14, 0.09, 0.55)      # verde-café oscuro traslúcido
+	estilo.bg_color = Color(0.10, 0.14, 0.09, 0.55)
 	estilo.set_corner_radius_all(18)
 	estilo.set_content_margin_all(22)
 	estilo.content_margin_left = 30
@@ -750,7 +676,6 @@ func _construir_tarjeta_stats(gano: bool) -> Control:
 	col.add_theme_constant_override("separation", 12)
 	tarjeta.add_child(col)
 
-	# Título de la tarjeta.
 	var titulo := Label.new()
 	titulo.text = "RESULTADOS DE LA PARTIDA"
 	titulo.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -760,11 +685,9 @@ func _construir_tarjeta_stats(gano: bool) -> Control:
 	titulo.add_theme_constant_override("outline_size", 5)
 	col.add_child(titulo)
 
-	# Separador fino bajo el título.
 	var sep := HSeparator.new()
 	col.add_child(sep)
 
-	# Datos de la partida.
 	var t_restante: int = max(tiempo, 0)
 	var t_usado: int = max(TIEMPO_INICIAL - t_restante, 0)
 	col.add_child(_fila_estadistica("★", "Puntuación final", "%d" % _puntos_actuales(), Color("FFD54F")))
@@ -774,7 +697,7 @@ func _construir_tarjeta_stats(gano: bool) -> Control:
 	col.add_child(_fila_estadistica("♥", "Vidas restantes", "%d / %d" % [max(_vidas, 0), VIDAS_MAX], Color("E57373")))
 	return tarjeta
 
-# Una fila de la tarjeta de estadísticas: [icono]  etiqueta .......  VALOR.
+# Una fila de la tarjeta: [icono] etiqueta ... VALOR.
 func _fila_estadistica(icono: String, etiqueta: String, valor: String, color_icono: Color) -> Control:
 	var fila := HBoxContainer.new()
 	fila.add_theme_constant_override("separation", 14)
@@ -800,13 +723,13 @@ func _fila_estadistica(icono: String, etiqueta: String, valor: String, color_ico
 	va.text = valor
 	va.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	va.add_theme_font_size_override("font_size", 28)
-	va.add_theme_color_override("font_color", Color("FFE082"))   # amarillo destacado
+	va.add_theme_color_override("font_color", Color("FFE082"))
 	va.add_theme_color_override("font_outline_color", Color(0, 0, 0))
 	va.add_theme_constant_override("outline_size", 3)
 	fila.add_child(va)
 	return fila
 
-# Calcula un "nivel/desempeño" según el resultado y el porcentaje clasificado.
+# Nivel/desempeño según el resultado y el porcentaje clasificado.
 func _nivel_desempeno(gano: bool) -> String:
 	if gano:
 		return "Maestro Reciclador"
@@ -821,8 +744,7 @@ func _nivel_desempeno(gano: bool) -> String:
 		return "Aprendiz"
 	return "Novato"
 
-# Botón "Reintentar" con sus texturas (normal/presionado). Si las imágenes aún
-# no están, cae a un botón de texto para no quedarse sin opción de reintentar.
+# Botón "Reintentar" (cae a botón de texto si no está la imagen).
 func _crear_boton_reintentar() -> Control:
 	if ResourceLoader.exists(BTN_RETRY_NORMAL):
 		var b := TextureButton.new()
@@ -832,7 +754,6 @@ func _crear_boton_reintentar() -> Control:
 			b.texture_hover = load(BTN_RETRY_PRESSED)
 		b.ignore_texture_size = true
 		b.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
-		# Acción principal: más grande y destacado.
 		b.custom_minimum_size = Vector2(500, 240)
 		b.pressed.connect(_on_reintentar)
 		return b
@@ -840,10 +761,7 @@ func _crear_boton_reintentar() -> Control:
 	tb.pressed.connect(_on_reintentar)
 	return tb
 
-# Botón "Home" (volver al menú) con sus texturas normal/presionada. La textura
-# presionada se muestra automáticamente al pulsar, simulando la interacción, y al
-# soltar el clic se ejecuta el regreso al menú. Si las imágenes no están, cae a
-# un botón de texto para no quedarse sin la opción.
+# Botón "Home" (cae a botón de texto si no está la imagen).
 func _crear_boton_home() -> Control:
 	if ResourceLoader.exists(BTN_HOME_NORMAL):
 		var b := TextureButton.new()
@@ -877,9 +795,8 @@ func _on_volver_menu() -> void:
 
 # --- Menú de pausa (ESC) ----------------------------------------------------
 
-# ESC abre/cierra el menú de pausa mientras la partida está en curso. No usamos
-# get_tree().paused para no perder el control del propio menú: en su lugar
-# congelamos el reloj y deshabilitamos al jugador.
+# ESC abre/cierra el menú de pausa. No usa get_tree().paused para no perder el
+# control del propio menú: congela el reloj y deshabilita al jugador.
 func _unhandled_input(event: InputEvent) -> void:
 	if _juego_terminado:
 		return
@@ -893,7 +810,7 @@ func _unhandled_input(event: InputEvent) -> void:
 func _abrir_pausa() -> void:
 	if _pausa_capa != null:
 		return
-	# Congela el reloj y al jugador, y libera el mouse para tocar los botones.
+	# Congela el reloj y al jugador, y libera el mouse.
 	timer.paused = true
 	var jugador := get_node_or_null("Player")
 	if jugador:
@@ -911,7 +828,6 @@ func _cerrar_pausa() -> void:
 	var jugador := get_node_or_null("Player")
 	if jugador:
 		jugador.process_mode = Node.PROCESS_MODE_INHERIT
-	# Vuelve a capturar el mouse para la cámara del jugador.
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 func _construir_menu_pausa() -> CanvasLayer:
@@ -920,13 +836,13 @@ func _construir_menu_pausa() -> CanvasLayer:
 	capa.layer = 140
 	capa.process_mode = Node.PROCESS_MODE_ALWAYS
 
-	# Fondo oscuro que atenúa el juego de atrás.
+	# Fondo oscuro.
 	var fondo := ColorRect.new()
 	fondo.color = Color(0, 0, 0, 0.5)
 	fondo.set_anchors_preset(Control.PRESET_FULL_RECT)
 	capa.add_child(fondo)
 
-	# Tarjeta central estilo madera (misma identidad visual del resto del HUD).
+	# Tarjeta central.
 	var tarjeta := PanelContainer.new()
 	tarjeta.anchor_left = 0.5
 	tarjeta.anchor_right = 0.5

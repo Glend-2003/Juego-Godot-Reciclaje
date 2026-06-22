@@ -1,57 +1,38 @@
 extends Control
-## Pantalla de carga de GreenUNA.
-##
-## Objetivo: que el jugador NUNCA vea el mundo "armándose". El mundo se carga y
-## se construye por completo DETRÁS de la ilustración de carga, y solo cuando
-## está 100% listo se desvanece la pantalla y se revela el juego.
-##
-## Cómo se logra (dos etapas):
-##   1) Carga de recursos en segundo plano con hilo (ResourceLoader threaded):
-##      trae del disco los .glb pesados del hangar, basureros, etc.
-##   2) Construcción del mundo: una vez cargado, se instancia main.tscn DEBAJO de
-##      la imagen. main.gd genera colisiones, bosque, basureros y basura, y al
-##      terminar emite su señal "mundo_listo". Recién ahí desvanecemos la imagen.
-##
-## La imagen vive en una CanvasLayer alta (layer 200) que tapa todo el HUD del
-## juego mientras se arma, así no se ve nada a medio cargar.
+# Pantalla de carga: arma el mundo detrás de la imagen y lo revela cuando está listo.
 
 const ESCENA_MUNDO := "res://main.tscn"
 const IMAGEN_CARGA := "res://Game 3D/Pantalla de carga Amigos.jpeg"
 
-# Tiempo mínimo en pantalla para que no parpadee si la carga fuera muy rápida.
+# Tiempo mínimo en pantalla para que no parpadee.
 const TIEMPO_MINIMO := 1.2
 
 var _capa: CanvasLayer
-var _overlay: Control          # contiene la imagen + el letrero; esto se desvanece
+var _overlay: Control          # imagen + letrero; esto se desvanece
 var _label_carga: Label
-var _t: float = 0.0            # acumulador para animar los puntos
-var _t_total: float = 0.0     # tiempo total en pantalla
-var _instanciado: bool = false # ya se pidió instanciar el mundo
-var _revelando: bool = false   # ya empezó el desvanecido final
+var _t: float = 0.0
+var _t_total: float = 0.0
+var _instanciado: bool = false
+var _revelando: bool = false
 
 func _ready() -> void:
-	# El Control raíz no debe interceptar el mouse del juego.
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_construir_ui()
-	# Etapa 1: pedir la carga de recursos en segundo plano (use_sub_threads para
-	# repartir las dependencias en varios hilos y que cargue más rápido).
+	# Etapa 1: carga de recursos en segundo plano.
 	ResourceLoader.load_threaded_request(ESCENA_MUNDO, "", true)
 
 func _construir_ui() -> void:
-	# Capa por encima de TODO (incluido el HUD del juego que se irá armando atrás).
+	# Capa por encima de todo (incluido el HUD del juego que se irá armando atrás).
 	_capa = CanvasLayer.new()
 	_capa.layer = 200
 	add_child(_capa)
 
-	# Contenedor que agrupa imagen + letrero, para desvanecerlo de una sola vez.
 	_overlay = Control.new()
 	_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_capa.add_child(_overlay)
 
-	# Ilustración de carga: se redimensiona hasta llenar TODA la pantalla. Se ve
-	# completa (sin recortes) y ocupa todo el espacio (STRETCH_SCALE estira la
-	# imagen al tamaño de la pantalla).
+	# Ilustración de carga estirada a toda la pantalla.
 	var fondo := TextureRect.new()
 	fondo.set_anchors_preset(Control.PRESET_FULL_RECT)
 	fondo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
@@ -60,7 +41,7 @@ func _construir_ui() -> void:
 	fondo.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_overlay.add_child(fondo)
 
-	# Letrero "Cargando..." con puntos animados, abajo-centro, estilo madera.
+	# Letrero "Cargando..." abajo-centro, estilo madera.
 	var tarjeta := PanelContainer.new()
 	tarjeta.anchor_left = 0.5
 	tarjeta.anchor_right = 0.5
@@ -68,7 +49,6 @@ func _construir_ui() -> void:
 	tarjeta.anchor_bottom = 1.0
 	tarjeta.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	tarjeta.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	# Subido respecto al borde para no tapar la frase del fondo de la imagen.
 	tarjeta.offset_bottom = -80
 	tarjeta.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
@@ -107,7 +87,7 @@ func _process(delta: float) -> void:
 	if _instanciado:
 		return
 
-	# Consultar el estado de la carga de recursos.
+	# Estado de la carga de recursos.
 	var progreso: Array = []
 	var estado := ResourceLoader.load_threaded_get_status(ESCENA_MUNDO, progreso)
 	match estado:
@@ -119,27 +99,23 @@ func _process(delta: float) -> void:
 			_instanciado = true
 			get_tree().change_scene_to_file(ESCENA_MUNDO)
 
-# Etapa 2: instancia el mundo DEBAJO de la imagen y espera a que avise que ya
-# terminó de construirse.
+# Etapa 2: instancia el mundo bajo la imagen y espera a que avise que está listo.
 func _instanciar_mundo() -> void:
 	_instanciado = true
 	var packed: PackedScene = ResourceLoader.load_threaded_get(ESCENA_MUNDO)
 	var mundo: Node = packed.instantiate()
-	# Conectar la señal del mundo (una sola vez) para revelar cuando esté listo.
 	if mundo.has_signal("mundo_listo"):
 		mundo.connect("mundo_listo", _on_mundo_listo, CONNECT_ONE_SHOT)
 	else:
-		# Compatibilidad: si el mundo no emite la señal, revelamos tras un frame.
+		# Si el mundo no emite la señal, revelamos tras un frame.
 		_on_mundo_listo.call_deferred()
-	# El mundo es hijo de esta pantalla; su HUD (CanvasLayer < 200) queda tapado
-	# por la imagen hasta que terminemos.
 	add_child(mundo)
 
 func _on_mundo_listo() -> void:
 	if _revelando:
 		return
 	_revelando = true
-	# Desvanecer la imagen para revelar el juego ya completamente armado.
+	# Desvanecer la imagen para revelar el juego ya armado.
 	var tw := create_tween()
 	tw.tween_property(_overlay, "modulate:a", 0.0, 0.4)
 	tw.tween_callback(_capa.queue_free)

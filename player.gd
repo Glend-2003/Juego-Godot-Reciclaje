@@ -24,8 +24,7 @@ const ANIM_SOURCES := {
 var jumping_anim := "Jump"
 
 var _current_anim := ""
-# Mientras _anim_lock > 0 se mantiene una animación de acción (p. ej. agarrar)
-# sin que la locomoción la pise.
+# Mientras _anim_lock > 0 se mantiene la animación de acción (agarrar).
 var _anim_lock := 0.0
 
 func _ready() -> void:
@@ -106,21 +105,19 @@ func _play(name: String) -> void:
 	_current_anim = name
 	anim.play(name, 0.15)
 
-# Reproduce la animación de agarrar ("Pickup") una sola vez. La llama el
-# PickupSystem cuando el jugador recoge una basura.
-# Devuelve el PickupSystem hijo (lo usa Basurero para depositar).
+# Devuelve el PickupSystem hijo.
 func get_pickup_system() -> PickupSystem:
 	for c in get_children():
 		if c is PickupSystem:
 			return c
 	return null
 
-const PICKUP_SPEED := 3.0     # multiplicador de velocidad de la animación de agarrar
+const PICKUP_SPEED := 3.0
 
 func reproducir_pickup() -> void:
 	if anim == null or not anim.has_animation("Pickup"):
 		return
-	_current_anim = "Pickup"    # marcar para que _process no la pise
+	_current_anim = "Pickup"
 	anim.play("Pickup", 0.1, PICKUP_SPEED)
 	_anim_lock = anim.get_animation("Pickup").length / PICKUP_SPEED
 
@@ -170,8 +167,7 @@ func _physics_process(delta: float) -> void:
 
 	move_and_slide()
 
-	# Mientras dura una animación de acción (agarrar), no la pisamos con la
-	# locomoción.
+	# Mientras dura la animación de agarrar, no la pisa la locomoción.
 	if _anim_lock > 0.0:
 		_anim_lock -= delta
 		return

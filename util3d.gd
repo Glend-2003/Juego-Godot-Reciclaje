@@ -1,9 +1,8 @@
 extends RefCounted
 class_name Util3D
-# Utilidades geométricas compartidas (mismo patrón de AABB que usa main.gd,
-# centralizado aquí para no duplicarlo en cada script).
+# Utilidades geométricas compartidas (AABB).
 
-# Devuelve todos los descendientes de 'nodo' de forma recursiva.
+# Todos los descendientes de 'nodo' de forma recursiva.
 static func todos_los_descendientes(nodo: Node) -> Array:
 	var salida: Array = []
 	for hijo in nodo.get_children():

@@ -1,37 +1,15 @@
 extends Node
-## Autoload (singleton) que gestiona los diálogos tipo "toast" de GreenUNA.
-##
-## Responsabilidades:
-##   - Guardar TODAS las frases agrupadas por categoría.
-##   - Mostrar UNA sola frase al azar por evento, evitando repetir la frase
-##     que salió la vez inmediatamente anterior dentro de la misma categoría.
-##   - Crear y mantener su propia capa visual (CanvasLayer) para que los toasts
-##     aparezcan por encima de cualquier escena y sobrevivan a los cambios de
-##     escena (al ser autoload).
-##
-## Uso desde cualquier parte del juego:
-##     DialogueManager.show_dialogue("correcto", "good")
-##     DialogueManager.show_dialogue("error", "bad")
-##     DialogueManager.show_text("Acércate a un basurero", "neutral")
-##
-## El parámetro "tipo" cambia el color del acento (borde) del popup:
-##     "good"    -> verde   (acierto)
-##     "bad"     -> rojo    (error)
-##     "neutral" -> café madera (informativo)
+# Autoload que gestiona los diálogos tipo "toast".
+# show_dialogue(categoria, tipo) / show_text(texto, tipo).
+# tipo: "good" (verde), "bad" (rojo), "neutral" (café).
 
-# Escena reutilizable del popup. Se instancia una vez por cada toast.
 const PopupScene := preload("res://DialoguePopup.tscn")
 
-# --- Paleta de acento (identidad visual GreenUNA) ---------------------------
-const COLOR_GOOD := Color("7CB342")     # verde brillante
-const COLOR_BAD := Color("C0392B")      # rojo de acento
-const COLOR_NEUTRAL := Color("8B5A2B")  # café madera
+const COLOR_GOOD := Color("7CB342")
+const COLOR_BAD := Color("C0392B")
+const COLOR_NEUTRAL := Color("8B5A2B")
 
-# --- Frases por categoría ---------------------------------------------------
-# Cada clave es una categoría; el valor es la lista de frases posibles.
-# Cada categoría tiene una lista de frases. Cada frase es un diccionario con:
-#   "t" = texto que se muestra en el toast.
-#   "a" = nombre del archivo de audio en res://audio/ ("" = sin audio).
+# Frases por categoría. Cada frase: "t" = texto, "a" = audio en res://audio/ ("" = sin audio).
 var _frases := {
 	# Basura BIEN colocada (acierto).
 	"correcto": [
@@ -92,31 +70,21 @@ var _frases := {
 	],
 }
 
-# Recuerda el índice de la última frase mostrada por categoría, para no
-# repetir la misma dos veces seguidas.
+# Última frase mostrada por categoría, para no repetirla dos veces seguidas.
 var _ultimo_indice := {}
 
-# Capa visual propia y contenedor donde se apilan los toasts.
 var _capa: CanvasLayer
 var _contenedor: VBoxContainer
 
 # --- Sonidos --------------------------------------------------------------
-# Carpeta donde viven los audios. Cada frase indica su archivo en "a".
 const AUDIO_DIR := "res://audio/"
 
-# Música ambiental (suena en bucle durante toda la partida) y jingles de
-# desenlace por acierto/derrota. Van en reproductores propios para no cortar
-# las frases de voz ni cortarse entre sí.
 const MUSICA_AMBIENTE := "res://audio/Ambiente.mp3"
 const SFX_WIN := "res://audio/Win.mp3"
 const SFX_LOST := "res://audio/Lost.mp3"
-
-# Volumen de la música de fondo: ni muy alta ni muy baja, para que se escuche
-# por debajo de las voces y los efectos.
 const MUSICA_VOLUMEN_DB := -14.0
 
-# Sonidos de desenlace (no son frases): los dispara main.gd con
-# reproducir_sfx_evento(). Si el archivo no existe, simplemente no suena.
+# Sonidos de desenlace. Los dispara main.gd con reproducir_sfx_evento().
 const SFX := {
 	"ganar":    "res://audio/ganar.mp3",
 	"perder":   "res://audio/perder.mp3",
@@ -128,24 +96,20 @@ const SFX := {
 	"bad3":     "res://audio/bad3.mp3",
 }
 
-# Reproductor de efectos (uno solo: cada nuevo sonido reemplaza al anterior).
+# Reproductor de voces (cada sonido reemplaza al anterior).
 var _sfx: AudioStreamPlayer
-# Reproductor de jingles de acierto/derrota: aparte del de voces para que el
-# "Win" pueda sonar junto con la frase de "¡Eso mae!".
+# Reproductor de jingles de acierto/derrota (aparte de las voces).
 var _jingle: AudioStreamPlayer
-# Reproductor exclusivo de la música ambiental en bucle.
+# Reproductor de la música ambiental en bucle.
 var _musica: AudioStreamPlayer
 
 func _ready() -> void:
-	# Construimos la capa una sola vez. Al ser hija del autoload, persiste entre
-	# escenas y siempre dibuja por encima del juego.
+	# Capa propia: persiste entre escenas y dibuja por encima del juego.
 	_capa = CanvasLayer.new()
-	_capa.layer = 128                       # bien arriba de todo el HUD
+	_capa.layer = 128
 	add_child(_capa)
 
-	# Contenedor anclado al centro-superior de la pantalla. Ancho cero + anclas
-	# en 0.5 con crecimiento a ambos lados => se centra horizontalmente y se
-	# ajusta al tamaño de los toasts.
+	# Contenedor centrado en la parte superior.
 	_contenedor = VBoxContainer.new()
 	_contenedor.name = "Toasts"
 	_contenedor.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -156,119 +120,101 @@ func _ready() -> void:
 	_contenedor.anchor_bottom = 0.0
 	_contenedor.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	_contenedor.grow_vertical = Control.GROW_DIRECTION_END
-	_contenedor.offset_top = 80              # margen desde el borde superior
-	_contenedor.mouse_filter = Control.MOUSE_FILTER_IGNORE  # no bloquea el juego
+	_contenedor.offset_top = 80
+	_contenedor.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_capa.add_child(_contenedor)
 
-	# Reproductor de efectos de sonido (voces de las frases).
 	_sfx = AudioStreamPlayer.new()
 	add_child(_sfx)
 
-	# Reproductor de jingles de acierto/derrota (Win/Lost).
 	_jingle = AudioStreamPlayer.new()
 	add_child(_jingle)
 
-	# Reproductor de la música ambiental en bucle.
 	_musica = AudioStreamPlayer.new()
 	_musica.volume_db = MUSICA_VOLUMEN_DB
 	add_child(_musica)
 
 # --- API pública ------------------------------------------------------------
 
-## Muestra UNA frase aleatoria de la categoría indicada.
-## tipo: "good" (verde), "bad" (rojo) o "neutral" (café).
+# Muestra una frase aleatoria de la categoría.
 func show_dialogue(categoria: String, tipo: String = "neutral") -> void:
 	var frase := _frase_aleatoria(categoria)
 	if frase.is_empty():
 		return
 	_mostrar_toast(frase.get("t", ""), _color_por_tipo(tipo))
-	# Reproduce el audio de ESA frase concreta (si tiene uno asignado).
 	_reproducir_archivo(frase.get("a", ""))
 
-## Muestra un texto literal (útil para mensajes puntuales que no son una
-## categoría, p. ej. "Acércate a un basurero").
+# Muestra un texto literal.
 func show_text(texto: String, tipo: String = "neutral") -> void:
 	if texto.strip_edges() == "":
 		return
 	_mostrar_toast(texto, _color_por_tipo(tipo))
 
-## Reproduce el sonido de un evento por su clave (ver SFX), p. ej. "ganar",
-## "perder" o "final". Lo usa main.gd para los desenlaces de la partida.
+# Reproduce el sonido de un evento por su clave (ver SFX).
 func reproducir_sfx_evento(clave: String) -> void:
 	_reproducir_evento(clave)
 
-## Arranca la música ambiental en bucle. La llama main.gd al iniciar la partida.
-## Si ya está sonando, no hace nada (evita reiniciarla).
+# Arranca la música ambiental en bucle (no hace nada si ya suena).
 func iniciar_musica_ambiente() -> void:
 	if _musica == null or _musica.playing or not ResourceLoader.exists(MUSICA_AMBIENTE):
 		return
 	var stream = load(MUSICA_AMBIENTE)
 	if stream == null:
 		return
-	# Forzamos el bucle aunque el mp3 se haya importado con loop=false.
+	# Forzar el bucle aunque el mp3 se haya importado con loop=false.
 	if stream.get("loop") != null:
 		stream.set("loop", true)
 	_musica.stream = stream
 	_musica.play()
 
-## Detiene la música ambiental (al terminar la partida).
+# Detiene la música ambiental.
 func detener_musica_ambiente() -> void:
 	if _musica:
 		_musica.stop()
 
-## Elimina de inmediato todos los toasts visibles. Se llama al terminar la
-## partida: los toasts se animan con un tween atado al árbol, así que al pausar
-## el juego (get_tree().paused) se quedarían congelados a media animación encima
-## de la pantalla de resultado. Limpiándolos antes evitamos ese mensaje pegado.
+# Elimina los toasts visibles (al terminar la partida, para que no queden pegados).
 func limpiar_toasts() -> void:
 	if _contenedor == null:
 		return
 	for hijo in _contenedor.get_children():
 		hijo.queue_free()
 
-## Jingle corto de acierto (cada vez que se clasifica bien una basura).
+# Jingle de acierto.
 func reproducir_win() -> void:
 	_reproducir_en(_jingle, SFX_WIN)
 
-## Jingle de derrota (al perder la partida).
+# Jingle de derrota.
 func reproducir_lost() -> void:
 	_reproducir_en(_jingle, SFX_LOST)
 
 # --- Interno ----------------------------------------------------------------
 
-# Reproduce el archivo de SFX[clave] (sonidos de desenlace) si existe.
 func _reproducir_evento(clave: String) -> void:
 	if clave == "":
 		return
 	_reproducir_ruta(SFX.get(clave, ""))
 
-# Reproduce un audio de frase por su nombre de archivo dentro de res://audio/.
 func _reproducir_archivo(archivo: String) -> void:
 	if archivo == "":
 		return
 	_reproducir_ruta(AUDIO_DIR + archivo)
 
-# Carga y reproduce la pista en 'ruta' en el reproductor de voces.
 func _reproducir_ruta(ruta: String) -> void:
 	_reproducir_en(_sfx, ruta)
 
-# Carga y reproduce la pista en 'ruta' en el reproductor indicado. Si el archivo
-# no existe (o falta), no hace nada: así el juego funciona aunque todavía no
-# tengas todos los audios.
+# Carga y reproduce 'ruta' en el reproductor dado. Si no existe, no hace nada.
 func _reproducir_en(player: AudioStreamPlayer, ruta: String) -> void:
 	if ruta == "" or player == null or not ResourceLoader.exists(ruta):
 		return
 	var stream = load(ruta)
 	if stream == null:
 		return
-	# Evita que un efecto quede en bucle si se importó con loop activado.
 	if stream.get("loop") != null:
 		stream.set("loop", false)
 	player.stream = stream
 	player.play()
 
-## Elige una frase al azar de la categoría, distinta a la última mostrada.
-## Devuelve el diccionario {t, a} o {} si la categoría no existe.
+# Frase al azar de la categoría, distinta a la última. {} si no existe.
 func _frase_aleatoria(categoria: String) -> Dictionary:
 	var lista: Array = _frases.get(categoria, [])
 	if lista.is_empty():
@@ -279,13 +225,11 @@ func _frase_aleatoria(categoria: String) -> Dictionary:
 
 	var ultimo: int = _ultimo_indice.get(categoria, -1)
 	var idx := randi() % lista.size()
-	# Si cae en la misma de la vez anterior, volvemos a tirar el dado.
 	while idx == ultimo:
 		idx = randi() % lista.size()
 	_ultimo_indice[categoria] = idx
 	return lista[idx]
 
-## Traduce el "tipo" al color de acento del borde.
 func _color_por_tipo(tipo: String) -> Color:
 	match tipo:
 		"good":
@@ -295,10 +239,7 @@ func _color_por_tipo(tipo: String) -> Color:
 		_:
 			return COLOR_NEUTRAL
 
-## Instancia un popup, lo agrega al contenedor y lo anima.
 func _mostrar_toast(texto: String, color_borde: Color) -> void:
 	var popup := PopupScene.instantiate()
-	# add_child dispara _ready() del popup de forma síncrona, así que sus
-	# @onready ya están listos cuando llamamos a mostrar().
 	_contenedor.add_child(popup)
 	popup.mostrar(texto, color_borde)

@@ -1,15 +1,6 @@
 extends RefCounted
 class_name CatalogoBasura
-# Catálogo de modelos .glb de basura agrupados por categoría/basurero.
-# Asignaciones según las reglas oficiales del juego (ver Categorias):
-#   AZUL  = Plásticos limpios y latas (envases reciclables)
-#   GRIS  = Papel y cartón secos (cajas, periódicos, tubos, tetrabrik)
-#   VERDE = Orgánicos compostables (restos de frutas, verduras, cáscaras)
-#   NEGRO = No valorizables (bolsas plásticas usadas, envases sucios)
-#   TAPAS = Tapas plásticas exclusivas (campañas de reciclaje específicas)
-#
-# IMPORTANTE: estos .glb deben estar importados por Godot (basta con abrir el
-# proyecto en el editor una vez) para que load() los pueda cargar en runtime.
+# Modelos .glb de basura agrupados por categoría.
 
 const MODELOS := {
 	Categorias.Tipo.AZUL: [
@@ -37,14 +28,14 @@ const MODELOS := {
 	Categorias.Tipo.TAPAS: [],
 }
 
-# Devuelve la ruta de un modelo aleatorio de la categoría dada ("" si no hay).
+# Ruta de un modelo aleatorio de la categoría ("" si no hay).
 static func modelo_aleatorio(t: int) -> String:
 	var lista: Array = MODELOS.get(t, [])
 	if lista.is_empty():
 		return ""
 	return lista[randi() % lista.size()]
 
-# Lista de categorías disponibles en el catálogo (excluye las vacías).
+# Categorías disponibles (excluye las vacías).
 static func categorias() -> Array:
 	var out: Array = []
 	for k in MODELOS.keys():

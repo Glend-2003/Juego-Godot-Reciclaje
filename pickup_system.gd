@@ -1,20 +1,11 @@
 extends Node3D
 class_name PickupSystem
-# Sistema de recogida MANUAL de basura. Vive como hijo del Player.
-#
-# Reglas:
-#   - El jugador puede cargar UNA sola basura a la vez.
-#   - La recogida NO es automática: el jugador debe estar cerca y pulsar
-#     "pickup" (F en PC, botón en móvil) para levantar la basura seleccionada.
-#   - Con "switch_trash" (G en PC, botón en móvil) cicla entre las basuras
-#     cercanas para elegir cuál levantar.
-#   - La basura seleccionada muestra un indicador flotante amarillo encima.
-#   - Al entrar al área de un Basurero llevando basura, ésta se deposita
-#     automáticamente: desaparece y el jugador queda libre.
+# Recogida manual de basura. Hijo del Player.
+# El jugador carga una basura a la vez: F recoge, G cambia/deposita.
 
-@export var radio_interaccion: float = 1.2   # alcance para detectar basura y basureros
-@export var altura_indicador: float = 2.2    # altura del indicador sobre los pies
-@export var escala_indicador: float = 0.5    # dimensión mayor del indicador (m)
+@export var radio_interaccion: float = 1.2
+@export var altura_indicador: float = 2.2
+@export var escala_indicador: float = 0.5
 @export var vel_rotacion: float = 1.5
 
 var _area: Area3D
@@ -32,33 +23,29 @@ var _hud_etiqueta: Label
 var _hud_hint: Label
 var _monedas: int = 0
 
-# Contadores de rachas para los diálogos de combo/fallos.
+# Rachas para los diálogos de combo/fallos.
 var _aciertos_seguidos: int = 0
 var _fallos_seguidos: int = 0
 
 signal monedas_cambiaron(total: int, delta: int)
-# Se emite cada vez que el jugador deposita una basura en un basurero.
-# 'correcta' = true si fue al basurero adecuado. main.gd la usa para la
-# condición de victoria (clasificar TODA la basura correctamente).
+# Se emite al depositar una basura. 'correcta' = al basurero adecuado.
 signal basura_clasificada(correcta: bool)
 
-# Nodo bajo el cual reaparece la basura si el jugador la suelta manualmente, para
-# que siga siendo recolectable (la meta exige clasificar TODA la basura, así que
-# soltarla NO debe hacerla desaparecer del juego). Lo asigna main.gd.
+# Nodo donde reaparece la basura si el jugador la suelta. Lo asigna main.gd.
 var _respawn_parent: Node = null
 
 var _btn_pickup: Button
 var _btn_switch: Button
 var _btn_deposit: Button
 
-# Basuras cercanas y selección actual
+# Basuras cercanas y selección actual.
 var _cercanos: Array[TrashItem] = []
 var _seleccion: int = 0
 
-# Basureros cercanos (Area3D con script Basurero)
+# Basureros cercanos.
 var _bins_cercanos: Array[Area3D] = []
 
-# Estado de lo que carga el jugador (-1 = nada).
+# Lo que carga el jugador (-1 = nada).
 var _cat_cargada: int = -1
 var _ruta_cargada: String = ""
 
@@ -101,8 +88,7 @@ func _construir_hud() -> void:
 	var capa := CanvasLayer.new()
 	add_child(capa)
 
-	# Tarjeta "Llevas:" anclada en la esquina inferior izquierda. Agrupa la
-	# etiqueta y el visor 3D en un VBox para que queden alineados y centrados.
+	# Tarjeta "Llevas:" en la esquina inferior izquierda.
 	_hud_tarjeta = PanelContainer.new()
 	_hud_tarjeta.anchor_left = 0.0
 	_hud_tarjeta.anchor_top = 1.0
@@ -156,9 +142,7 @@ func _construir_hud() -> void:
 	_hud_soporte = Node3D.new()
 	_hud_viewport.add_child(_hud_soporte)
 
-	# Hint contextual ("F: Recoger", "G: Depositar en ..."): solo letra pequeña
-	# en blanco, anclada abajo-centro (por encima del contador de basura). Sin
-	# recuadro de fondo. Se oculta cuando no hay texto.
+	# Hint contextual abajo-centro ("F: Recoger", etc.). Se oculta sin texto.
 	_hud_hint = Label.new()
 	_hud_hint.text = ""
 	_hud_hint.anchor_left = 0.0
@@ -178,7 +162,7 @@ func _construir_hud() -> void:
 	_hud_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	capa.add_child(_hud_hint)
 
-	# Botones táctiles SOLO en móvil.
+	# Botones táctiles solo en móvil.
 	if OS.has_feature("mobile") or DisplayServer.is_touchscreen_available():
 		_btn_pickup = _crear_boton_movil("Recoger", Vector2(0, -220))
 		_btn_pickup.pressed.connect(_intentar_recoger)
@@ -216,21 +200,20 @@ func _crear_boton_movil(texto: String, pos: Vector2) -> Button:
 func _process(delta: float) -> void:
 	_t += delta
 
-	# Limpiar referencias muertas (por si una basura fue queue_free externamente)
+	# Limpiar referencias muertas.
 	for i in range(_cercanos.size() - 1, -1, -1):
 		if not is_instance_valid(_cercanos[i]):
 			_cercanos.remove_at(i)
 	if _seleccion >= _cercanos.size():
 		_seleccion = 0
 
-	# Indicador flotante sobre el jugador
+	# Indicador flotante sobre el jugador.
 	if _indicador:
 		_indicador.rotate_y(vel_rotacion * delta)
 		_indicador.position.y = _indicador_base_y + sin(_t * 2.0) * 0.07
 	if _hud_soporte and _cargando():
 		_hud_soporte.rotate_y(delta * 1.0)
 
-	# Texto contextual
 	_actualizar_hint()
 
 
@@ -249,7 +232,6 @@ func _actualizar_hint() -> void:
 	else:
 		_hud_hint.text = ""
 
-	# El texto solo se ve cuando hay algo que decir.
 	_hud_hint.visible = _hud_hint.text != ""
 
 	if _btn_pickup:
@@ -268,18 +250,18 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("pickup"):
 		_intentar_recoger()
 	elif event.is_action_pressed("switch_trash"):
-		# G es contextual: si llevás algo, intenta depositar; si no, cicla selección.
+		# G: si lleva algo deposita; si no, cicla la selección.
 		if _cargando():
 			_intentar_depositar()
 		else:
 			_ciclar_seleccion()
 	elif event.is_action_pressed("interact") and _cargando():
-		_soltar()   # drop manual (fallback)
+		_soltar()
 
 func _cargando() -> bool:
 	return _cat_cargada != -1
 
-# --- Detección y selección de basura cercana --------------------------------
+# --- Detección y selección --------------------------------------------------
 
 func _on_area_entered(area: Area3D) -> void:
 	if area is TrashItem and not _cercanos.has(area):
@@ -321,7 +303,6 @@ func _recoger(item: TrashItem) -> void:
 	if jugador.has_method("reproducir_pickup"):
 		jugador.reproducir_pickup()
 	_crear_preview_hud(item.modelo_path)
-	# Sacar de la lista y eliminar del mundo
 	_cercanos.erase(item)
 	if _seleccion >= _cercanos.size():
 		_seleccion = 0
@@ -344,7 +325,6 @@ func _bin_mas_cercano() -> Area3D:
 	return mejor
 
 func _intentar_depositar() -> void:
-	# Mensajes informativos (no son acierto ni error de clasificación): café/neutral.
 	if not _cargando():
 		DialogueManager.show_text("Primero recogé una basura (F)", "neutral")
 		return
@@ -357,12 +337,11 @@ func _intentar_depositar() -> void:
 	var acepta_todo: bool = bool(bin.get("acepta_todo"))
 
 	if acepta_todo or cat_bin == _cat_cargada:
-		# --- ACIERTO ---
+		# Acierto.
 		basura_clasificada.emit(true)
 		_sumar_monedas(1)
 		_aciertos_seguidos += 1
 		_fallos_seguidos = 0
-		# Combo: a los 10 aciertos "combo10", a los 5/15/25... "combo5".
 		if _aciertos_seguidos % 10 == 0:
 			DialogueManager.show_dialogue("combo10", "good")
 		elif _aciertos_seguidos % 5 == 0:
@@ -374,21 +353,16 @@ func _intentar_depositar() -> void:
 		_limpiar_indicador()
 		_limpiar_preview_hud()
 	else:
-		# --- ERROR (basurero equivocado) ---
-		# La basura NO se deposita: el jugador la sigue cargando para reintentar.
-		# No resta puntos; el costo del error es perder una vida (lo maneja main.gd
-		# al recibir basura_clasificada(false)).
+		# Error: la basura NO se deposita, se sigue cargando. Cuesta una vida (main.gd).
 		basura_clasificada.emit(false)
 		_fallos_seguidos += 1
 		_aciertos_seguidos = 0
-		# A los 3 fallos seguidos, reproche extra; si no, frase de error normal.
 		if _fallos_seguidos % 3 == 0:
 			DialogueManager.show_dialogue("fallos3", "bad")
 		else:
 			DialogueManager.show_dialogue("error", "bad")
 
 func _sumar_monedas(delta: int) -> void:
-	# Los puntos nunca bajan de 0.
 	_monedas = max(0, _monedas + delta)
 	monedas_cambiaron.emit(_monedas, delta)
 
@@ -396,8 +370,7 @@ func get_monedas() -> int:
 	return _monedas
 
 func _soltar() -> void:
-	# Devuelve la basura al mundo (no se pierde): la meta exige clasificar TODA
-	# la basura, así que soltarla debe dejarla recolectable de nuevo en el piso.
+	# Devuelve la basura al mundo para que siga siendo recolectable.
 	if _cat_cargada != -1 and _ruta_cargada != "" and is_instance_valid(_respawn_parent):
 		var item := TrashItem.crear(_cat_cargada, _ruta_cargada)
 		_respawn_parent.add_child(item)
